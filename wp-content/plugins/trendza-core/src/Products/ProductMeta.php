@@ -24,6 +24,7 @@ final class ProductMeta {
     public const SUPPLIER_RRP = '_trendza_supplier_rrp';
     public const SYNC_STATUS = '_trendza_sync_status';
     public const LAST_SYNC = '_trendza_last_synced_at';
+    public const SOURCE_IMAGE = '_trendza_source_image';
 
     public static function get(int $productId, string $key, $default = '') {
         $value = get_post_meta($productId, $key, true);
