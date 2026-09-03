@@ -2,6 +2,7 @@
 namespace Trendza\Support;
 
 use Trendza\Admin\ProductFields;
+use Trendza\AI\ProductDiscoveryController;
 use Trendza\Analytics\AnalyticsService;
 use Trendza\API\AnalyticsController;
 use Trendza\API\RestController;
@@ -13,6 +14,7 @@ final class Plugin {
         ProductFields::register();
         RestController::register();
         AnalyticsController::register();
+        ProductDiscoveryController::register();
         AnalyticsService::register();
         add_action('init', [TrendService::class, 'registerSchedule']);
         add_action('trendza_recalculate_trends', [TrendService::class, 'recalculatePublishedProducts']);
