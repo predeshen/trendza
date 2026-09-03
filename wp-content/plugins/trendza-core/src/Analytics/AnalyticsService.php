@@ -11,7 +11,7 @@ final class AnalyticsService {
         add_action('woocommerce_add_to_cart', [self::class, 'onAddToCart'], 10, 6);
         add_action('woocommerce_order_status_processing', [self::class, 'onOrder'], 10, 1);
         add_action('woocommerce_order_status_completed', [self::class, 'onOrder'], 10, 1);
-        add_action('trendza_recalculate_trends', [self::class, 'recalculate']);
+        add_action('trendza_recalculate_trends', [self::class, 'recalculate'], 20);
         add_action('trendza_prune_events', [self::class, 'prune']);
     }
 
@@ -55,17 +55,14 @@ final class AnalyticsService {
             new TrendSignal('sales_velocity', self::velocity($sales24, $sales7), 30),
             new TrendSignal('view_velocity', self::velocity($views24, $views7), 10),
             new TrendSignal('add_to_cart_velocity', self::velocity($cart24, $cart7), 15),
-            new TrendSignal('search_growth', 0, 15),
-            new TrendSignal('social_velocity', 0, 10),
             new TrendSignal('review_quality', self::reviewScore($productId), 5),
             new TrendSignal('availability', self::availabilityScore($productId), 5),
-            new TrendSignal('price_competitiveness', 0, 10),
         ];
     }
 
     private static function velocity(int $short, int $long): float {
-        $baseline = max(1.0, $long / 7.0);
-        return min(100.0, max(0.0, ($short / $baseline) * 50.0));
+        if ($long <= 0) return $short > 0 ? 100.0 : 0.0;
+        return min(100.0, max(0.0, ($short / max(1.0, $long / 7.0)) * 50.0));
     }
 
     private static function reviewScore(int $id): float {
@@ -80,8 +77,7 @@ final class AnalyticsService {
     }
 
     private static function sessionKey(): string {
-        if (isset($_COOKIE['trendza_session']) && is_string($_COOKIE['trendza_session'])) return sanitize_text_field($_COOKIE['trendza_session']);
-        return wp_generate_uuid4();
+        return isset($_COOKIE['trendza_session']) && is_string($_COOKIE['trendza_session']) ? sanitize_text_field(wp_unslash($_COOKIE['trendza_session'])) : wp_generate_uuid4();
     }
 
     public static function prune(): void { EventStore::prune(90); }
