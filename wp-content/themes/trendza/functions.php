@@ -123,6 +123,12 @@ function trendza_discovery_routes(): void {
 }
 add_action('init', 'trendza_discovery_routes');
 
+function trendza_flush_discovery_rewrites(): void {
+    trendza_discovery_routes();
+    flush_rewrite_rules(false);
+}
+add_action('after_switch_theme', 'trendza_flush_discovery_rewrites');
+
 function trendza_discovery_query_var(array $vars): array {
     $vars[] = 'trendza_discovery';
     return $vars;
@@ -185,7 +191,7 @@ function trendza_discovery_query(): WP_Query {
 function trendza_fallback_menu(): void {
     echo '<ul class="main-menu"><li><a href="' . esc_url(home_url('/')) . '">Home</a></li>';
     if (class_exists('WooCommerce')) {
-        echo '<li><a href="' . esc_url(wc_get_page_permalink('shop')) . '">Shop</a></li><li><a href="' . esc_url(wc_get_cart_url()) . '">Cart</a></li>';
+        echo '<li><a href="' . esc_url(wc_get_page_permalink('shop')) . '">Shop</a></li><li><a href="' . esc_url(home_url('/trending/')) . '">Trending</a></li><li><a href="' . esc_url(home_url('/rising/')) . '">Rising</a></li><li><a href="' . esc_url(wc_get_cart_url()) . '">Cart</a></li>';
     }
     echo '</ul>';
 }
