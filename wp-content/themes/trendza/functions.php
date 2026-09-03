@@ -68,6 +68,55 @@ function trendza_single_product_trend_badge(): void {
 }
 add_action('woocommerce_single_product_summary', 'trendza_single_product_trend_badge', 4);
 
+function trendza_render_intelligence_panel(): void {
+    global $product;
+    if (!$product) return;
+    $id = (int) $product->get_id();
+    $meta = static function (string $key, $default = '') use ($id) { return get_post_meta($id, $key, true) ?: $default; };
+    $trend = trendza_get_product_trend($id);
+    $quality = (float) $meta('_trendza_quality_score', 0);
+    $value = (float) $meta('_trendza_value_score', 0);
+    $summary = trim((string) $meta('_trendza_summary'));
+    $ai = trim((string) $meta('_trendza_ai_summary'));
+    $use_cases = $meta('_trendza_use_cases', []);
+    $pros = $meta('_trendza_pros', []);
+    $cons = $meta('_trendza_cons', []);
+    $specs = $meta('_trendza_specs', []);
+    $shipping = trim((string) $meta('_trendza_shipping_info'));
+    foreach (['use_cases','pros','cons'] as $field) {
+        ${$field} = is_string(${$field}) ? preg_split('/\r\n|\r|\n|,/', ${$field}, -1, PREG_SPLIT_NO_EMPTY) : (array) ${$field};
+    }
+    if (is_string($specs)) {
+        $decoded = json_decode($specs, true);
+        $specs = is_array($decoded) ? $decoded : [];
+    }
+    $has_content = $summary || $ai || $quality || $value || $use_cases || $pros || $cons || $specs || $shipping;
+    if (!$has_content) return;
+    ?>
+    <section class="trendza-intelligence" aria-labelledby="trendza-intelligence-title">
+        <div class="intelligence-heading">
+            <div><span class="eyebrow">Trendza Intelligence</span><h2 id="trendza-intelligence-title">Why this product stands out</h2></div>
+            <?php if ($trend) : ?><div class="intelligence-score"><strong><?php echo esc_html(number_format_i18n($trend['score'], 0)); ?></strong><span>Trend score</span></div><?php endif; ?>
+        </div>
+        <?php if ($summary) : ?><p class="intelligence-summary"><?php echo esc_html($summary); ?></p><?php elseif ($ai) : ?><p class="intelligence-summary"><?php echo esc_html($ai); ?></p><?php endif; ?>
+        <?php if ($quality || $value) : ?>
+            <div class="score-grid">
+                <?php if ($quality) : ?><div class="score-card"><span>Product quality</span><strong><?php echo esc_html(number_format_i18n($quality, 0)); ?><small>/100</small></strong><div class="score-track"><i style="width:<?php echo esc_attr(min(100, $quality)); ?>%"></i></div></div><?php endif; ?>
+                <?php if ($value) : ?><div class="score-card"><span>Value score</span><strong><?php echo esc_html(number_format_i18n($value, 0)); ?><small>/100</small></strong><div class="score-track"><i style="width:<?php echo esc_attr(min(100, $value)); ?>%"></i></div></div><?php endif; ?>
+            </div>
+        <?php endif; ?>
+        <div class="intelligence-grid">
+            <?php if ($use_cases) : ?><div class="intel-card"><h3>Best for</h3><ul><?php foreach ($use_cases as $item) : ?><li><?php echo esc_html(trim((string) $item)); ?></li><?php endforeach; ?></ul></div><?php endif; ?>
+            <?php if ($pros) : ?><div class="intel-card"><h3>Pros</h3><ul class="check-list"><?php foreach ($pros as $item) : ?><li><?php echo esc_html(trim((string) $item)); ?></li><?php endforeach; ?></ul></div><?php endif; ?>
+            <?php if ($cons) : ?><div class="intel-card"><h3>Things to consider</h3><ul><?php foreach ($cons as $item) : ?><li><?php echo esc_html(trim((string) $item)); ?></li><?php endforeach; ?></ul></div><?php endif; ?>
+            <?php if ($specs) : ?><div class="intel-card"><h3>Key specs</h3><dl><?php foreach ($specs as $key => $value) : if (is_array($value)) $value = implode(', ', $value); ?><div><dt><?php echo esc_html(ucwords(str_replace(['_','-'], ' ', (string) $key))); ?></dt><dd><?php echo esc_html((string) $value); ?></dd></div><?php endforeach; ?></dl></div><?php endif; ?>
+        </div>
+        <?php if ($shipping) : ?><div class="shipping-note"><strong>Delivery</strong><span><?php echo esc_html($shipping); ?></span></div><?php endif; ?>
+    </section>
+    <?php
+}
+add_action('woocommerce_after_single_product_summary', 'trendza_render_intelligence_panel', 8);
+
 function trendza_fallback_menu(): void {
     echo '<ul class="main-menu"><li><a href="' . esc_url(home_url('/')) . '">Home</a></li>';
     if (class_exists('WooCommerce')) {
