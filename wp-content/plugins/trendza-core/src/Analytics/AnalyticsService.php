@@ -16,7 +16,7 @@ final class AnalyticsService {
     }
 
     public static function onAddToCart($cartItemKey, $productId, $quantity): void {
-        EventStore::record((int) $productId, 'add_to_cart', self::sessionKey(), ['quantity' => max(1, (int) $quantity]);
+        EventStore::record((int) $productId, 'add_to_cart', self::sessionKey(), ['quantity' => max(1, (int) $quantity)]);
     }
 
     public static function onOrder(int $orderId): void {
@@ -71,7 +71,7 @@ final class AnalyticsService {
     private static function reviewScore(int $id): float {
         $product = function_exists('wc_get_product') ? wc_get_product($id) : false;
         if (!$product) return 0;
-        return min(100, max(0, ((float) $product->get_average_rating() / 5) * 70 + min(30, (int) $product->get_review_count()));
+        return min(100, max(0, ((float) $product->get_average_rating() / 5) * 70 + min(30, (int) $product->get_review_count())));
     }
 
     private static function availabilityScore(int $id): float {
