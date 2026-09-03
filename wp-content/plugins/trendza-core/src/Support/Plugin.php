@@ -1,0 +1,21 @@
+<?php
+namespace Trendza\Support;
+
+use Trendza\Admin\ProductFields;
+use Trendza\API\RestController;
+use Trendza\Products\ProductRepository;
+use Trendza\Trend\TrendService;
+
+final class Plugin {
+    public static function boot(): void {
+        ProductFields::register();
+        RestController::register();
+        add_action('init', [TrendService::class, 'registerSchedule']);
+        add_action('trendza_recalculate_trends', [TrendService::class, 'recalculatePublishedProducts']);
+        add_action('save_post_product', [TrendService::class, 'refreshProductQuality'], 20, 2);
+    }
+
+    public static function discovery(int $limit = 8, string $mode = 'trending'): array {
+        return (new ProductRepository())->discover($limit, $mode);
+    }
+}
