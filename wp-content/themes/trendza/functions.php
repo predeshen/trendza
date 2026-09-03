@@ -117,6 +117,71 @@ function trendza_render_intelligence_panel(): void {
 }
 add_action('woocommerce_after_single_product_summary', 'trendza_render_intelligence_panel', 8);
 
+function trendza_discovery_routes(): void {
+    add_rewrite_rule('^(trending|rising|best-value|quality-picks)/?$', 'index.php?trendza_discovery=$matches[1]', 'top');
+    add_rewrite_rule('^(trending|rising|best-value|quality-picks)/page/([0-9]+)/?$', 'index.php?trendza_discovery=$matches[1]&paged=$matches[2]', 'top');
+}
+add_action('init', 'trendza_discovery_routes');
+
+function trendza_discovery_query_var(array $vars): array {
+    $vars[] = 'trendza_discovery';
+    return $vars;
+}
+add_filter('query_vars', 'trendza_discovery_query_var');
+
+function trendza_discovery_template(string $template): string {
+    if (get_query_var('trendza_discovery')) {
+        $candidate = get_template_directory() . '/discovery.php';
+        if (is_readable($candidate)) return $candidate;
+    }
+    return $template;
+}
+add_filter('template_include', 'trendza_discovery_template');
+
+function trendza_discovery_title(): string {
+    $key = sanitize_key((string) get_query_var('trendza_discovery'));
+    return match ($key) {
+        'trending' => 'Trending Products in South Africa',
+        'rising' => 'Rising Products to Watch',
+        'best-value' => 'Best Value Products',
+        'quality-picks' => 'Quality Picks',
+        default => 'Discover on Trendza',
+    };
+}
+
+function trendza_discovery_description(): string {
+    $key = sanitize_key((string) get_query_var('trendza_discovery'));
+    return match ($key) {
+        'trending' => 'Explore products showing the strongest current Trendza signals across activity, demand and product quality.',
+        'rising' => 'Find products gaining momentum before they become the next big trend.',
+        'best-value' => 'Shop products selected for a strong balance of price, quality and usefulness.',
+        'quality-picks' => 'Browse products with strong catalogue quality signals, useful information and dependable availability.',
+        default => 'Discover curated products on Trendza.',
+    };
+}
+
+function trendza_discovery_query(): WP_Query {
+    $key = sanitize_key((string) get_query_var('trendza_discovery'));
+    $args = ['post_type' => 'product', 'post_status' => 'publish', 'posts_per_page' => 24, 'paged' => max(1, (int) get_query_var('paged')), 'no_found_rows' => false];
+    if ($key === 'trending' || $key === 'rising') {
+        $args['meta_key'] = '_trendza_trend_score';
+        $args['orderby'] = 'meta_value_num';
+        $args['order'] = 'DESC';
+        $args['meta_query'] = [['key' => '_trendza_trend_status', 'value' => $key === 'trending' ? 'trending' : 'rising']];
+    } elseif ($key === 'best-value') {
+        $args['meta_key'] = '_trendza_value_score';
+        $args['orderby'] = 'meta_value_num';
+        $args['order'] = 'DESC';
+        $args['meta_query'] = [['key' => '_trendza_value_score', 'compare' => 'EXISTS']];
+    } elseif ($key === 'quality-picks') {
+        $args['meta_key'] = '_trendza_quality_score';
+        $args['orderby'] = 'meta_value_num';
+        $args['order'] = 'DESC';
+        $args['meta_query'] = [['key' => '_trendza_quality_score', 'compare' => 'EXISTS']];
+    }
+    return new WP_Query($args);
+}
+
 function trendza_fallback_menu(): void {
     echo '<ul class="main-menu"><li><a href="' . esc_url(home_url('/')) . '">Home</a></li>';
     if (class_exists('WooCommerce')) {
