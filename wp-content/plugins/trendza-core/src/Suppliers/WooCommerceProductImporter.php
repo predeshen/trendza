@@ -13,36 +13,24 @@ final class WooCommerceProductImporter {
         $sku = sanitize_text_field((string) ($data['sku'] ?? ''));
         $name = sanitize_text_field((string) ($data['name'] ?? ''));
         $supplierCode = sanitize_key($supplierCode);
-
         if ($name === '' || ($externalId === '' && $sku === '')) {
             throw new \InvalidArgumentException('Product requires a name and external_id or SKU.');
         }
 
         $id = $sku !== '' ? (int) wc_get_product_id_by_sku($sku) : 0;
         if (!$id && $externalId !== '') {
-            $ids = get_posts([
-                'post_type' => 'product',
-                'post_status' => 'any',
-                'numberposts' => 1,
-                'fields' => 'ids',
-                'meta_query' => [
-                    ['key' => ProductMeta::EXTERNAL_ID, 'value' => $externalId],
-                    ['key' => ProductMeta::SUPPLIER_CODE, 'value' => $supplierCode],
-                ],
-            ]);
+            $ids = get_posts(['post_type'=>'product','post_status'=>'any','numberposts'=>1,'fields'=>'ids','meta_query'=>[
+                ['key'=>ProductMeta::EXTERNAL_ID,'value'=>$externalId],
+                ['key'=>ProductMeta::SUPPLIER_CODE,'value'=>$supplierCode],
+            ]]);
             $id = (int) ($ids[0] ?? 0);
         }
 
-        $isNew = !$id;
         $product = $id ? wc_get_product($id) : new \WC_Product_Simple();
-        if (!$product) {
-            throw new \RuntimeException('Unable to load WooCommerce product.');
-        }
+        if (!$product) throw new \RuntimeException('Unable to load WooCommerce product.');
 
         $product->set_name($name);
-        if ($sku !== '' && ($isNew || $product->get_sku() !== $sku)) {
-            $product->set_sku($sku);
-        }
+        if ($sku !== '' && $product->get_sku() !== $sku) $product->set_sku($sku);
 
         $description = wp_kses_post((string) ($data['description'] ?? ''));
         if ($description !== '') {
@@ -58,10 +46,13 @@ final class WooCommerceProductImporter {
         }
 
         if ($updateStock) {
-            $product->set_manage_stock(true);
+            // Supplier feeds generally expose availability, not a reliable quantity.
+            // Keep WooCommerce quantity management disabled and sync the availability state.
+            $product->set_manage_stock(false);
             $product->set_stock_status(!empty($data['in_stock']) ? 'instock' : 'outofstock');
         }
 
+        $this->syncAttributes($product, (array) ($data['attributes'] ?? []));
         $productId = $product->save();
 
         update_post_meta($productId, ProductMeta::EXTERNAL_ID, $externalId);
@@ -76,20 +67,16 @@ final class WooCommerceProductImporter {
         }
 
         $this->syncCategories($productId, (array) ($data['categories'] ?? []));
-        $this->syncAttributes($product, (array) ($data['attributes'] ?? []));
         $this->syncImage($productId, (string) ($data['image'] ?? ''));
-
         return $productId;
     }
 
     private function syncCategories(int $productId, array $categories): void {
         if (!function_exists('wp_set_object_terms')) return;
-
         $termIds = [];
         foreach ($categories as $category) {
             $category = trim(sanitize_text_field((string) $category));
             if ($category === '') continue;
-
             $parent = 0;
             $parts = array_values(array_filter(array_map('trim', preg_split('/\\s*(?:>|\\/)\\s*/', $category) ?: [])));
             foreach ($parts as $part) {
@@ -97,7 +84,7 @@ final class WooCommerceProductImporter {
                 if ($existing && !is_wp_error($existing)) {
                     $termId = (int) $existing->term_id;
                 } else {
-                    $created = wp_insert_term($part, 'product_cat', ['parent' => $parent]);
+                    $created = wp_insert_term($part, 'product_cat', ['parent'=>$parent]);
                     if (is_wp_error($created)) continue 2;
                     $termId = (int) $created['term_id'];
                 }
@@ -105,15 +92,11 @@ final class WooCommerceProductImporter {
             }
             if ($parent) $termIds[] = $parent;
         }
-
-        if ($termIds) {
-            wp_set_object_terms($productId, array_values(array_unique($termIds)), 'product_cat', false);
-        }
+        if ($termIds) wp_set_object_terms($productId, array_values(array_unique($termIds)), 'product_cat', false);
     }
 
     private function syncAttributes(\WC_Product $product, array $attributes): void {
         if (!$attributes) return;
-
         $productAttributes = [];
         foreach ($attributes as $name => $value) {
             if (is_int($name)) {
@@ -124,7 +107,6 @@ final class WooCommerceProductImporter {
             $name = sanitize_text_field((string) $name);
             $value = sanitize_text_field(is_array($value) ? implode(', ', $value) : (string) $value);
             if ($name === '' || $value === '') continue;
-
             $attribute = new \WC_Product_Attribute();
             $attribute->set_id(0);
             $attribute->set_name($name);
@@ -134,32 +116,23 @@ final class WooCommerceProductImporter {
             $attribute->set_variation(false);
             $productAttributes[] = $attribute;
         }
-
         if ($productAttributes) $product->set_attributes($productAttributes);
     }
 
     private function syncImage(int $productId, string $imageUrl): void {
         $imageUrl = esc_url_raw(trim($imageUrl));
         if ($imageUrl === '' || !wp_http_validate_url($imageUrl)) return;
-
         $previous = (string) get_post_meta($productId, ProductMeta::SOURCE_IMAGE, true);
         if ($previous === $imageUrl && has_post_thumbnail($productId)) return;
-
-        if (has_post_thumbnail($productId)) {
-            update_post_meta($productId, ProductMeta::SOURCE_IMAGE, $imageUrl);
-            return;
-        }
 
         require_once ABSPATH . 'wp-admin/includes/file.php';
         require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
-
         $attachmentId = media_sideload_image($imageUrl, $productId, null, 'id');
         if (is_wp_error($attachmentId)) {
             update_post_meta($productId, ProductMeta::SYNC_STATUS, 'synced_image_error');
             return;
         }
-
         set_post_thumbnail($productId, (int) $attachmentId);
         update_post_meta($productId, ProductMeta::SOURCE_IMAGE, $imageUrl);
     }
