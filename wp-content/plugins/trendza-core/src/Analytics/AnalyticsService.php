@@ -23,14 +23,19 @@ final class AnalyticsService {
         $order = function_exists('wc_get_order') ? wc_get_order($orderId) : false;
         if (!$order || $order->get_meta('_trendza_purchase_recorded')) return;
         foreach ($order->get_items() as $item) {
-            EventStore::record((int) $item->get_product_id(), 'purchase', self::sessionKey(), ['quantity' => (int) $item->get_quantity(), 'order_hash' => hash('sha256', (string) $orderId)]);
+            $productId = (int) $item->get_product_id();
+            if ($productId <= 0) continue;
+            EventStore::record($productId, 'purchase', self::sessionKey(), [
+                'quantity' => max(1, (int) $item->get_quantity()),
+                'order_hash' => hash('sha256', (string) $orderId),
+            ]);
         }
         $order->update_meta_data('_trendza_purchase_recorded', 'yes');
         $order->save_meta_data();
     }
 
     public static function recalculate(): void {
-        $ids = get_posts(['post_type'=>'product','post_status'=>'publish','numberposts'=>-1,'fields'=>'ids']);
+        $ids = get_posts(['post_type' => 'product', 'post_status' => 'publish', 'numberposts' => -1, 'fields' => 'ids']);
         $calculator = new TrendScoreCalculator();
         $resolver = new TrendStatusResolver();
         foreach ($ids as $id) {
@@ -41,7 +46,11 @@ final class AnalyticsService {
             $momentum = $score - $previous;
             update_post_meta($id, ProductMeta::TREND_SCORE, $score);
             update_post_meta($id, ProductMeta::TREND_STATUS, $resolver->resolve($score, $momentum));
-            update_post_meta($id, ProductMeta::TREND_SIGNALS, array_map(static fn(TrendSignal $s) => ['name'=>$s->name,'value'=>$s->value,'weight'=>$s->weight], $signals));
+            update_post_meta($id, ProductMeta::TREND_SIGNALS, array_map(static fn (TrendSignal $s) => [
+                'name' => $s->name,
+                'value' => $s->value,
+                'weight' => $s->weight,
+            ], $signals));
             update_post_meta($id, ProductMeta::TREND_UPDATED_AT, current_time('mysql', true));
         }
     }
@@ -53,10 +62,14 @@ final class AnalyticsService {
         $cart7 = EventStore::count($productId, 'add_to_cart', 168);
         $sales24 = EventStore::count($productId, 'purchase', 24);
         $sales7 = EventStore::count($productId, 'purchase', 168);
+        $search24 = EventStore::count($productId, 'search', 24);
+        $search7 = EventStore::count($productId, 'search', 168);
+
         return [
             new TrendSignal('sales_velocity', self::velocity($sales24, $sales7), 30),
             new TrendSignal('view_velocity', self::velocity($views24, $views7), 10),
             new TrendSignal('add_to_cart_velocity', self::velocity($cart24, $cart7), 15),
+            new TrendSignal('search_growth', self::velocity($search24, $search7), 15),
             new TrendSignal('review_quality', self::reviewScore($productId), 5),
             new TrendSignal('availability', self::availabilityScore($productId), 5),
         ];
@@ -79,7 +92,9 @@ final class AnalyticsService {
     }
 
     private static function sessionKey(): string {
-        return isset($_COOKIE['trendza_session']) && is_string($_COOKIE['trendza_session']) ? sanitize_text_field(wp_unslash($_COOKIE['trendza_session'])) : wp_generate_uuid4();
+        return isset($_COOKIE['trendza_session']) && is_string($_COOKIE['trendza_session'])
+            ? sanitize_text_field(wp_unslash($_COOKIE['trendza_session']))
+            : wp_generate_uuid4();
     }
 
     public static function prune(): void { EventStore::prune(90); }
