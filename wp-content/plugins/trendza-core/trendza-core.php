@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Trendza Core
- * Description: Product intelligence, trend scoring and discovery APIs for Trendza.
- * Version: 0.2.0
+ * Description: Product intelligence, trend scoring, discovery, supplier and analytics infrastructure for Trendza.
+ * Version: 0.3.0
  * Requires PHP: 8.1
  * Requires Plugins: woocommerce
  */
@@ -16,9 +16,16 @@ add_action('plugins_loaded', static function () {
     if (class_exists('WooCommerce')) \Trendza\Support\Plugin::boot();
 });
 
+register_activation_hook(__FILE__, static function () {
+    if (class_exists('WooCommerce')) \Trendza\Analytics\EventStore::install();
+    if (!wp_next_scheduled('trendza_prune_events')) wp_schedule_event(time() + DAY_IN_SECONDS, 'daily', 'trendza_prune_events');
+});
+
 register_deactivation_hook(__FILE__, static function () {
-    $timestamp = wp_next_scheduled('trendza_recalculate_trends');
-    if ($timestamp) wp_unschedule_event($timestamp, 'trendza_recalculate_trends');
+    foreach (['trendza_recalculate_trends','trendza_prune_events'] as $hook) {
+        $timestamp = wp_next_scheduled($hook);
+        if ($timestamp) wp_unschedule_event($timestamp, $hook);
+    }
 });
 
 function trendza_get_discovery_products(int $limit = 8, string $mode = 'trending'): array {
