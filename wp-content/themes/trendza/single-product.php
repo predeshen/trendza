@@ -1,1 +1,11 @@
-<?php get_header(); ?><main id="main-content" class="container section"><div class="woocommerce"><?php while(have_posts()):the_post();global $product;$trend=$product?trendza_get_product_trend($product->get_id()):null;?><article <?php wc_product_class('', $product);?>><?php if($trend):?><p class="eyebrow"><?php echo esc_html(ucfirst($trend['status']));?> · <?php echo esc_html(number_format_i18n($trend['score'],0));?>/100</p><?php endif;?><?php wc_get_template('single-product/product-image.php'); ?><?php wc_get_template('single-product/product-summary.php'); ?></article><?php endwhile;?></div></main><?php get_footer(); ?>
+<?php
+get_header();
+?>
+<main id="main-content" class="container section">
+    <div class="woocommerce trendza-single-product">
+        <?php while (have_posts()) : the_post(); ?>
+            <?php wc_get_template_part('content', 'single-product'); ?>
+        <?php endwhile; ?>
+    </div>
+</main>
+<?php get_footer(); ?>
