@@ -1,6 +1,7 @@
 <?php
 namespace Trendza\Support;
 
+use Trendza\Admin\AdminDashboard;
 use Trendza\Admin\ProductFields;
 use Trendza\AI\ProductDiscoveryController;
 use Trendza\Analytics\AnalyticsService;
@@ -20,12 +21,10 @@ final class Plugin {
         AnalyticsService::register();
         SchemaService::register();
         SupplierCliCommand::register();
+        AdminDashboard::register();
         add_action('init', [TrendService::class, 'registerSchedule']);
         add_action('trendza_recalculate_trends', [TrendService::class, 'recalculatePublishedProducts']);
         add_action('save_post_product', [TrendService::class, 'refreshProductQuality'], 20, 2);
     }
-
-    public static function discovery(int $limit = 8, string $mode = 'trending'): array {
-        return (new ProductRepository())->discover($limit, $mode);
-    }
+    public static function discovery(int $limit = 8, string $mode = 'trending'): array { return (new ProductRepository())->discover($limit, $mode); }
 }
