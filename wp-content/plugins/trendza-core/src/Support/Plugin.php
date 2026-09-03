@@ -8,6 +8,7 @@ use Trendza\API\AnalyticsController;
 use Trendza\API\RestController;
 use Trendza\Products\ProductRepository;
 use Trendza\SEO\SchemaService;
+use Trendza\Suppliers\SupplierCliCommand;
 use Trendza\Trend\TrendService;
 
 final class Plugin {
@@ -18,6 +19,7 @@ final class Plugin {
         ProductDiscoveryController::register();
         AnalyticsService::register();
         SchemaService::register();
+        SupplierCliCommand::register();
         add_action('init', [TrendService::class, 'registerSchedule']);
         add_action('trendza_recalculate_trends', [TrendService::class, 'recalculatePublishedProducts']);
         add_action('save_post_product', [TrendService::class, 'refreshProductQuality'], 20, 2);
