@@ -13,6 +13,7 @@ final class AnalyticsController {
             'args' => [
                 'event' => ['required'=>true, 'sanitize_callback'=>'sanitize_key'],
                 'product_id' => ['default'=>0, 'sanitize_callback'=>'absint'],
+                'query' => ['default'=>'', 'sanitize_callback'=>'sanitize_text_field'],
             ],
         ]);
     }
@@ -22,7 +23,9 @@ final class AnalyticsController {
         $productId = absint($request->get_param('product_id'));
         if (!in_array($event, ['view','search','add_to_cart','begin_checkout'], true)) return new \WP_Error('trendza_invalid_event','Unsupported event',['status'=>400]);
         if ($productId && (!get_post($productId) || get_post_type($productId) !== 'product')) return new \WP_Error('trendza_invalid_product','Invalid product',['status'=>400]);
-        EventStore::record($productId, $event, self::clientKey($request));
+        $metadata = [];
+        if ($event === 'search' && $request->get_param('query')) $metadata['query'] = sanitize_text_field((string) $request->get_param('query'));
+        EventStore::record($productId, $event, self::clientKey($request), $metadata);
         return rest_ensure_response(['recorded'=>true]);
     }
 
