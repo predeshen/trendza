@@ -1,0 +1,1 @@
+document.addEventListener('DOMContentLoaded',function(){const b=document.querySelector('.menu-toggle'),m=document.getElementById('mobile-menu');if(!b||!m)return;b.addEventListener('click',function(){const o=b.getAttribute('aria-expanded')==='true';b.setAttribute('aria-expanded',String(!o));m.classList.toggle('is-open',!o);});});
