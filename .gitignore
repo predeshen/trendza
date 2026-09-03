@@ -1,0 +1,25 @@
+# WordPress
+/wp-content/uploads/
+/wp-content/cache/
+/wp-content/upgrade/
+/wp-content/backup*
+/wp-content/blogs.dir/
+/wp-content/advanced-cache.php
+/wp-content/object-cache.php
+
+# Local environment
+.env
+.env.*
+!.env.example
+vendor/
+node_modules/
+.DS_Store
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+Thumbs.db
