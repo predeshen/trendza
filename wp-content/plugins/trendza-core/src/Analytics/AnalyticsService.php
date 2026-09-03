@@ -21,10 +21,12 @@ final class AnalyticsService {
 
     public static function onOrder(int $orderId): void {
         $order = function_exists('wc_get_order') ? wc_get_order($orderId) : false;
-        if (!$order) return;
+        if (!$order || $order->get_meta('_trendza_purchase_recorded')) return;
         foreach ($order->get_items() as $item) {
             EventStore::record((int) $item->get_product_id(), 'purchase', self::sessionKey(), ['quantity' => (int) $item->get_quantity(), 'order_hash' => hash('sha256', (string) $orderId)]);
         }
+        $order->update_meta_data('_trendza_purchase_recorded', 'yes');
+        $order->save_meta_data();
     }
 
     public static function recalculate(): void {
