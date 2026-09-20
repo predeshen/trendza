@@ -9,6 +9,7 @@ use Trendza\Trend\TrendStatusResolver;
 final class AnalyticsService {
     public static function register(): void {
         add_action('woocommerce_add_to_cart', [self::class, 'onAddToCart'], 10, 6);
+        add_action('woocommerce_checkout_create_order', [self::class, 'onCheckoutCreateOrder'], 10, 2);
         add_action('woocommerce_order_status_processing', [self::class, 'onOrder'], 10, 1);
         add_action('woocommerce_order_status_completed', [self::class, 'onOrder'], 10, 1);
         add_action('trendza_recalculate_trends', [self::class, 'recalculate'], 20);
@@ -19,13 +20,23 @@ final class AnalyticsService {
         EventStore::record((int) $productId, 'add_to_cart', self::sessionKey(), ['quantity' => max(1, (int) $quantity)]);
     }
 
+    public static function onCheckoutCreateOrder($order, $data): void {
+        if (!$order || !is_object($order) || !method_exists($order, 'update_meta_data')) {
+            return;
+        }
+
+        $order->update_meta_data('_trendza_session_hash', hash('sha256', self::sessionKey()));
+    }
+
     public static function onOrder(int $orderId): void {
         $order = function_exists('wc_get_order') ? wc_get_order($orderId) : false;
         if (!$order || $order->get_meta('_trendza_purchase_recorded')) return;
+
+        $sessionHash = (string) $order->get_meta('_trendza_session_hash');
         foreach ($order->get_items() as $item) {
             $productId = (int) $item->get_product_id();
             if ($productId <= 0) continue;
-            EventStore::record($productId, 'purchase', self::sessionKey(), [
+            EventStore::record($productId, 'purchase', $sessionHash ?: self::sessionKey(), [
                 'quantity' => max(1, (int) $item->get_quantity()),
                 'order_hash' => hash('sha256', (string) $orderId),
             ]);
