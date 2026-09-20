@@ -94,27 +94,50 @@ final class WooCommerceProductImporter {
     }
 
     private function syncAttributes(\WC_Product $product, array $attributes): void {
-        if (!$attributes) return;
-        $productAttributes = [];
+        $previousSupplierNames = array_values(array_filter(array_map(
+            'strval',
+            (array) get_post_meta($product->get_id(), ProductMeta::SUPPLIER_ATTRIBUTES, true)
+        )));
+
+        $existing = $product->get_attributes();
+        foreach ($previousSupplierNames as $name) {
+            $key = sanitize_title($name);
+            if (isset($existing[$key])) unset($existing[$key]);
+        }
+
+        $managedNames = [];
+        $position = count($existing);
+
         foreach ($attributes as $name => $value) {
             if (is_int($name)) {
                 if (!is_array($value) || empty($value['name'])) continue;
-                $name = $value['name']; $value = $value['value'] ?? '';
+                $name = $value['name'];
+                $value = $value['value'] ?? '';
             }
+
             $name = sanitize_text_field((string) $name);
             $value = sanitize_text_field(is_array($value) ? implode(', ', $value) : (string) $value);
             if ($name === '' || $value === '') continue;
+
             $attribute = new \WC_Product_Attribute();
-            $attribute->set_id(0); $attribute->set_name($name); $attribute->set_options([$value]);
-            $attribute->set_position(count($productAttributes)); $attribute->set_visible(true); $attribute->set_variation(false);
-            $productAttributes[] = $attribute;
+            $attribute->set_id(0);
+            $attribute->set_name($name);
+            $attribute->set_options([$value]);
+            $attribute->set_position($position++);
+            $attribute->set_visible(true);
+            $attribute->set_variation(false);
+            $existing[sanitize_title($name)] = $attribute;
+            $managedNames[] = $name;
         }
-        if ($productAttributes) $product->set_attributes($productAttributes);
+
+        $product->set_attributes(array_values($existing));
+        update_post_meta($product->get_id(), ProductMeta::SUPPLIER_ATTRIBUTES, array_values(array_unique($managedNames)));
     }
 
     private function syncImage(int $productId, string $imageUrl): void {
         $imageUrl = esc_url_raw(trim($imageUrl));
         if ($imageUrl === '' || !wp_http_validate_url($imageUrl)) return;
+
         $previous = (string) get_post_meta($productId, ProductMeta::SOURCE_IMAGE, true);
         if ($previous === $imageUrl && has_post_thumbnail($productId)) return;
 
@@ -125,21 +148,53 @@ final class WooCommerceProductImporter {
         $response = wp_safe_remote_get($imageUrl, [
             'timeout' => 15,
             'redirection' => 3,
-            'limit_response_size' => 8 * MB_IN_BYTES,
+            'limit_response_size' => 8 * 1024 * 1024,
         ]);
+
         if (is_wp_error($response)) {
             update_post_meta($productId, ProductMeta::SYNC_STATUS, 'synced_image_error');
             return;
         }
 
         $status = (int) wp_remote_retrieve_response_code($response);
-        $type = strtolower((string) wp_remote_retrieve_header($response, 'content-type'));
+        $type = strtolower(trim((string) wp_remote_retrieve_header($response, 'content-type')));
         if ($status < 200 || $status >= 300 || !str_starts_with($type, 'image/')) {
             update_post_meta($productId, ProductMeta::SYNC_STATUS, 'synced_image_error');
             return;
         }
 
-        $attachmentId = media_sideload_image($imageUrl, $productId, null, 'id');
+        $body = wp_remote_retrieve_body($response);
+        if ($body === '') {
+            update_post_meta($productId, ProductMeta::SYNC_STATUS, 'synced_image_error');
+            return;
+        }
+
+        $extensions = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            'image/avif' => 'avif',
+        ];
+        $extension = $extensions[$type] ?? 'jpg';
+        $tmp = wp_tempnam('trendza-product-' . $productId . '.' . $extension);
+        if (!$tmp || file_put_contents($tmp, $body) === false) {
+            if ($tmp && file_exists($tmp)) @unlink($tmp);
+            update_post_meta($productId, ProductMeta::SYNC_STATUS, 'synced_image_error');
+            return;
+        }
+
+        $file = [
+            'name' => sanitize_file_name('trendza-product-' . $productId . '.' . $extension),
+            'type' => $type,
+            'tmp_name' => $tmp,
+            'error' => 0,
+            'size' => filesize($tmp),
+        ];
+
+        $attachmentId = media_handle_sideload($file, $productId);
+        @unlink($tmp);
+
         if (is_wp_error($attachmentId)) {
             update_post_meta($productId, ProductMeta::SYNC_STATUS, 'synced_image_error');
             return;
