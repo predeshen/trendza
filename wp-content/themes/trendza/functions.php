@@ -36,7 +36,8 @@ add_filter('body_class','trendza_body_classes');
 function trendza_noindex_utility_pages(array $robots): array {
     if (function_exists('is_cart') && (is_cart() || is_checkout() || is_account_page() || is_search())) {
         $robots['noindex'] = true;
-        $robots['nofollow'] = true;
+        // Keep utility pages out of search results without blocking crawlers from discovering linked products.
+        $robots['nofollow'] = false;
     }
     return $robots;
 }
