@@ -80,15 +80,7 @@ final class SchemaService {
             'sku' => $product->get_sku() ?: null,
             'image' => $image ? [$image] : null,
             'brand' => self::brand($product),
-            'offers' => [
-                '@type' => 'Offer',
-                'url' => $product->get_permalink(),
-                'priceCurrency' => get_woocommerce_currency(),
-                'price' => $product->get_price() !== '' ? (string) $product->get_price() : null,
-                'availability' => $product->is_in_stock() ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-                'itemCondition' => 'https://schema.org/NewCondition',
-                'seller' => ['@id' => home_url('/#organization')],
-            ],
+            'offers' => self::offers($product),
         ];
 
         if ($product->get_rating_count() > 0 && $product->get_average_rating() !== '') {
@@ -101,6 +93,37 @@ final class SchemaService {
         }
 
         return self::clean($schema);
+    }
+
+    private static function offers($product): array {
+        $currency = get_woocommerce_currency();
+        $base = [
+            'url' => $product->get_permalink(),
+            'priceCurrency' => $currency,
+            'availability' => $product->is_in_stock() ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+            'itemCondition' => 'https://schema.org/NewCondition',
+            'seller' => ['@id' => home_url('/#organization')],
+        ];
+
+        if ($product->is_type('variable')) {
+            $prices = $product->get_variation_prices(true);
+            $values = isset($prices['price']) ? array_filter(array_map('floatval', $prices['price']), static fn(float $price): bool => $price > 0) : [];
+            if ($values) {
+                return self::clean([
+                    '@type' => 'AggregateOffer',
+                    ...$base,
+                    'lowPrice' => (string) min($values),
+                    'highPrice' => (string) max($values),
+                    'offerCount' => count($values),
+                ]);
+            }
+        }
+
+        return self::clean([
+            '@type' => 'Offer',
+            ...$base,
+            'price' => $product->get_price() !== '' ? (string) $product->get_price() : null,
+        ]);
     }
 
     private static function brand($product): ?array {
@@ -154,8 +177,30 @@ final class SchemaService {
     }
 
     private static function deepestCategory(array $terms): ?\WP_Term {
-        usort($terms, static fn (\WP_Term $a, \WP_Term $b): int => ((int) $b->parent) <=> ((int) $a->parent));
-        return $terms[0] ?? null;
+        $best = null;
+        $bestDepth = -1;
+
+        foreach ($terms as $term) {
+            $depth = 0;
+            $parent = (int) $term->parent;
+            $guard = 0;
+
+            while ($parent > 0 && $guard++ < 50) {
+                $ancestor = get_term($parent, 'product_cat');
+                if (!$ancestor || is_wp_error($ancestor)) {
+                    break;
+                }
+                $depth++;
+                $parent = (int) $ancestor->parent;
+            }
+
+            if ($depth > $bestDepth) {
+                $best = $term;
+                $bestDepth = $depth;
+            }
+        }
+
+        return $best;
     }
 
     private static function clean(array $data): array {
