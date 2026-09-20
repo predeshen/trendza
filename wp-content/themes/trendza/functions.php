@@ -33,6 +33,20 @@ add_action('wp_enqueue_scripts','trendza_assets');
 function trendza_body_classes(array $classes): array { $classes[]='trendza-theme'; if(class_exists('WooCommerce'))$classes[]='trendza-woocommerce'; return $classes; }
 add_filter('body_class','trendza_body_classes');
 
+function trendza_product_search_query(\WP_Query $query): void {
+    if (is_admin() || !$query->is_main_query() || !$query->is_search()) {
+        return;
+    }
+
+    $post_type = $query->get('post_type');
+    if ($post_type === 'product' || (is_array($post_type) && in_array('product', $post_type, true))) {
+        $query->set('post_type', ['product']);
+    }
+}
+add_action('pre_get_posts','trendza_product_search_query',20);
+
+
+
 function trendza_get_product_trend(int $product_id): ?array { $score=get_post_meta($product_id,'_trendza_trend_score',true); $status=get_post_meta($product_id,'_trendza_trend_status',true); if($score===''||$status==='')return null; return ['score'=>(float)$score,'status'=>sanitize_key((string)$status)]; }
 
 function trendza_render_product_card(int $product_id): void {
