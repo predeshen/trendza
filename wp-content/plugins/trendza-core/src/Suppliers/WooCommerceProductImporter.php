@@ -26,28 +26,33 @@ final class WooCommerceProductImporter {
         if (!$product) throw new \RuntimeException('Unable to load WooCommerce product.');
 
         $product->set_name($name);
-        if ($sku !== '' && $product->get_sku() !== $sku) $product->set_sku($sku);
+        if (array_key_exists('sku', $data)) {
+            $currentSku = (string) $product->get_sku();
+            if ($sku !== $currentSku) $product->set_sku($sku);
+        }
 
-        $description = wp_kses_post((string) ($data['description'] ?? ''));
-        if ($description !== '') {
+        if (array_key_exists('description', $data)) {
+            $description = wp_kses_post((string) $data['description']);
             $product->set_description($description);
             $short = sanitize_textarea_field(wp_trim_words(wp_strip_all_tags($description), 35));
             $product->set_short_description($short);
         }
 
-        if ($updatePrice && isset($data['price'])) {
+        if ($updatePrice && array_key_exists('price', $data)) {
             $price = max(0, (float) $data['price']);
             $product->set_regular_price(wc_format_decimal($price));
-            $salePrice = isset($data['sale_price']) ? max(0, (float) $data['sale_price']) : 0;
+            $salePrice = array_key_exists('sale_price', $data) ? max(0, (float) $data['sale_price']) : 0;
             $product->set_sale_price($salePrice > 0 && $salePrice < $price ? wc_format_decimal($salePrice) : '');
         }
 
-        if ($updateStock) {
+        if ($updateStock && array_key_exists('in_stock', $data)) {
             $product->set_manage_stock(false);
             $product->set_stock_status(!empty($data['in_stock']) ? 'instock' : 'outofstock');
         }
 
-        $this->syncAttributes($product, (array) ($data['attributes'] ?? []));
+        if (array_key_exists('attributes', $data)) {
+            $this->syncAttributes($product, (array) $data['attributes']);
+        }
         $productId = $product->save();
 
         update_post_meta($productId, ProductMeta::EXTERNAL_ID, $externalId);
@@ -59,16 +64,15 @@ final class WooCommerceProductImporter {
 
         if (array_key_exists('brand', $data)) {
             $brand = sanitize_text_field((string) $data['brand']);
-            if ($brand !== '') {
-                update_post_meta($productId, ProductMeta::BRAND, $brand);
-            } else {
-                delete_post_meta($productId, ProductMeta::BRAND);
-            }
+            if ($brand !== '') update_post_meta($productId, ProductMeta::BRAND, $brand);
+            else delete_post_meta($productId, ProductMeta::BRAND);
         }
         if (array_key_exists('categories', $data)) {
             $this->syncCategories($productId, (array) $data['categories']);
         }
-        $this->syncImage($productId, (string) ($data['image'] ?? ''));
+        if (array_key_exists('image', $data)) {
+            $this->syncImage($productId, (string) $data['image']);
+        }
         return $productId;
     }
 
