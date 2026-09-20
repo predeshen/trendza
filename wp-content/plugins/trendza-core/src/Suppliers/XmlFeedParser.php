@@ -21,6 +21,7 @@ final class XmlFeedParser implements FeedParserInterface {
                 (string) $node->image,
                 $categories,
                 [],
+                (float) ($node->sale_price ?: $node->saleprice ?: 0),
             );
         }
     }
