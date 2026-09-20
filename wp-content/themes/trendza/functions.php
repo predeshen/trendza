@@ -16,9 +16,16 @@ function trendza_assets(): void {
     $v=wp_get_theme()->get('Version');
     wp_enqueue_style('trendza-style',get_stylesheet_uri(),[],$v);
     wp_enqueue_script('trendza-theme',get_template_directory_uri().'/assets/js/theme.js',[],$v,true);
+    $product_id=0;
+    if(function_exists('is_product') && is_product()) {
+        global $product;
+        $product_id=$product ? (int)$product->get_id() : 0;
+    }
     wp_localize_script('trendza-theme','trendzaConfig',[
         'analyticsEndpoint'=>esc_url_raw(rest_url('trendza/v1/events')),
         'aiEndpoint'=>esc_url_raw(rest_url('trendza/v1/ai')),
+        'productId'=>$product_id,
+        'isCheckout'=>function_exists('is_checkout') && is_checkout() && !is_order_received_page(),
     ]);
 }
 add_action('wp_enqueue_scripts','trendza_assets');
@@ -71,7 +78,7 @@ add_action('init','trendza_discovery_routes');
 function trendza_flush_discovery_rewrites(): void { trendza_discovery_routes(); flush_rewrite_rules(false); }
 add_action('after_switch_theme','trendza_flush_discovery_rewrites');
 function trendza_discovery_query_var(array $vars): array { $vars[]='trendza_discovery'; return $vars; }
-add_filter('query_vars','trendza_discovery_query_var');
+add_filter('query_vars', 'trendza_discovery_query_var');
 function trendza_discovery_template(string $template): string { if(get_query_var('trendza_discovery')){$candidate=get_template_directory().'/discovery.php';if(is_readable($candidate))return $candidate;}return $template; }
 add_filter('template_include','trendza_discovery_template');
 function trendza_discovery_title(): string { return match(sanitize_key((string)get_query_var('trendza_discovery'))){ 'trending'=>'Trending Products in South Africa','rising'=>'Rising Products to Watch','best-value'=>'Best Value Products','quality-picks'=>'Quality Picks',default=>'Discover on Trendza',}; }
