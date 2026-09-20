@@ -13,7 +13,10 @@
     <div class="container header-inner">
         <a class="site-brand" href="<?php echo esc_url(home_url('/')); ?>" aria-label="<?php echo esc_attr(get_bloginfo('name')); ?>">
             <?php if (has_custom_logo()) : ?>
-                <?php echo wp_kses_post(get_custom_logo()); ?>
+                <?php
+                $logoId = (int) get_theme_mod('custom_logo');
+                echo wp_kses_post(wp_get_attachment_image($logoId, 'full', false, ['class' => 'custom-logo', 'alt' => get_bloginfo('name')]));
+                ?>
             <?php else : ?>
                 <span>Trend<span>za</span></span>
             <?php endif; ?>
@@ -32,6 +35,11 @@
                     <span aria-hidden="true">Bag</span>
                     <?php $count = WC()->cart ? WC()->cart->get_cart_contents_count() : 0; ?>
                     <span class="cart-count" aria-label="<?php echo esc_attr($count . ' items in cart'); ?>"><?php echo esc_html($count); ?></span>
+                </a>
+            <?php endif; ?>
+            <?php if (class_exists('WooCommerce') && wc_get_page_id('myaccount') > 0) : ?>
+                <a class="icon-button account-link" href="<?php echo esc_url(wc_get_page_permalink('myaccount')); ?>" aria-label="My account" title="My account">
+                    <span aria-hidden="true">Account</span>
                 </a>
             <?php endif; ?>
             <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">
