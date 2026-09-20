@@ -24,6 +24,7 @@ final class CsvFeedParser implements FeedParserInterface {
                 (string) ($data['image'] ?? ''),
                 array_filter(array_map('trim', explode('|', (string) ($data['categories'] ?? '')))),
                 [],
+                (float) ($data['sale_price'] ?? $data['saleprice'] ?? 0),
             );
         }
         fclose($stream);
