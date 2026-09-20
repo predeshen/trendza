@@ -122,12 +122,35 @@ final class WooCommerceProductImporter {
         require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
 
+        $response = wp_safe_remote_get($imageUrl, [
+            'timeout' => 15,
+            'redirection' => 3,
+            'limit_response_size' => 8 * MB_IN_BYTES,
+        ]);
+        if (is_wp_error($response)) {
+            update_post_meta($productId, ProductMeta::SYNC_STATUS, 'synced_image_error');
+            return;
+        }
+
+        $status = (int) wp_remote_retrieve_response_code($response);
+        $type = strtolower((string) wp_remote_retrieve_header($response, 'content-type'));
+        if ($status < 200 || $status >= 300 || !str_starts_with($type, 'image/')) {
+            update_post_meta($productId, ProductMeta::SYNC_STATUS, 'synced_image_error');
+            return;
+        }
+
         $attachmentId = media_sideload_image($imageUrl, $productId, null, 'id');
         if (is_wp_error($attachmentId)) {
             update_post_meta($productId, ProductMeta::SYNC_STATUS, 'synced_image_error');
             return;
         }
+
+        $oldAttachmentId = (int) get_post_thumbnail_id($productId);
         set_post_thumbnail($productId, (int) $attachmentId);
         update_post_meta($productId, ProductMeta::SOURCE_IMAGE, $imageUrl);
+
+        if ($oldAttachmentId > 0 && $oldAttachmentId !== (int) $attachmentId && (int) get_post_field('post_parent', $oldAttachmentId) === $productId) {
+            wp_delete_attachment($oldAttachmentId, true);
+        }
     }
 }
