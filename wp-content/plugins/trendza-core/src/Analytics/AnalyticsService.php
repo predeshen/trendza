@@ -75,9 +75,34 @@ final class AnalyticsService {
         ];
     }
 
+    /**
+     * Convert a 24-hour event count into a bounded momentum/activity signal.
+     *
+     * A raw ratio makes a single new event look like a 7x growth spike when
+     * the previous six days are empty. This dampens sparse catalogue data by
+     * blending growth with an activity-confidence factor.
+     */
     private static function velocity(int $short, int $long): float {
-        if ($long <= 0) return $short > 0 ? 100.0 : 0.0;
-        return min(100.0, max(0.0, ($short / max(1.0, $long / 7.0)) * 50.0));
+        $short = max(0, $short);
+        $long = max($short, $long);
+
+        if ($long <= 0) return 0.0;
+
+        $previousSixDays = max(0, $long - $short);
+        $baselineDaily = $previousSixDays / 6.0;
+
+        if ($baselineDaily <= 0) {
+            $growth = $short > 0 ? 100.0 : 0.0;
+        } else {
+            $ratio = $short / $baselineDaily;
+            $growth = 50.0 + (($ratio - 1.0) * 25.0);
+            $growth = min(100.0, max(0.0, $growth));
+        }
+
+        $confidence = min(1.0, log1p($long) / log1p(50));
+        $activity = min(100.0, log1p($long) * 18.0);
+
+        return round(($growth * $confidence) + (50.0 * (1.0 - $confidence)) * 0.45 + ($activity * 0.55 * $confidence), 2);
     }
 
     private static function reviewScore(int $id): float {
