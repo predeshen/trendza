@@ -71,10 +71,18 @@ final class WooCommerceProductImporter {
             $parent = 0;
             $parts = array_values(array_filter(array_map('trim', preg_split('/\s*(?:>|\/)\s*/', $category) ?: [])));
             foreach ($parts as $part) {
-                $existing = get_term_by('name', $part, 'product_cat');
-                if ($existing && !is_wp_error($existing)) $termId = (int) $existing->term_id;
-                else {
-                    $created = wp_insert_term($part, 'product_cat', ['parent'=>$parent]);
+                $termId = 0;
+                $existing = get_terms([
+                    'taxonomy' => 'product_cat',
+                    'name' => $part,
+                    'parent' => $parent,
+                    'hide_empty' => false,
+                    'number' => 1,
+                ]);
+                if (!is_wp_error($existing) && !empty($existing)) {
+                    $termId = (int) $existing[0]->term_id;
+                } else {
+                    $created = wp_insert_term($part, 'product_cat', ['parent' => $parent]);
                     if (is_wp_error($created)) continue 2;
                     $termId = (int) $created['term_id'];
                 }
