@@ -92,9 +92,24 @@ final class AnalyticsService {
     }
 
     private static function sessionKey(): string {
-        return isset($_COOKIE['trendza_session']) && is_string($_COOKIE['trendza_session'])
-            ? sanitize_text_field(wp_unslash($_COOKIE['trendza_session']))
-            : wp_generate_uuid4();
+        if (isset($_COOKIE['trendza_session']) && is_string($_COOKIE['trendza_session'])) {
+            return sanitize_text_field(wp_unslash($_COOKIE['trendza_session']));
+        }
+
+        $session = wp_generate_uuid4();
+        if (function_exists('wc_setcookie')) {
+            wc_setcookie('trendza_session', $session, time() + (30 * DAY_IN_SECONDS), false);
+        } elseif (!headers_sent()) {
+            setcookie('trendza_session', $session, [
+                'expires' => time() + (30 * DAY_IN_SECONDS),
+                'path' => COOKIEPATH ?: '/',
+                'secure' => is_ssl(),
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+        }
+
+        return $session;
     }
 
     public static function prune(): void { EventStore::prune(90); }
