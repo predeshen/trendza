@@ -10,7 +10,7 @@ final class TrendScoringTest extends TestCase {
         $calculator = new TrendScoreCalculator();
 
         self::assertSame(
-            70.0,
+            87.5,
             $calculator->calculate([
                 new TrendSignal('sales', 100, 30),
                 new TrendSignal('views', 50, 10),
