@@ -82,23 +82,34 @@ final class AdminDashboard {
     }
 
     private static function productCounts(): array {
-        $ids = get_posts(['post_type'=>'product','post_status'=>'publish','numberposts'=>-1,'fields'=>'ids','no_found_rows'=>true,'update_post_meta_cache'=>false,'update_post_term_cache'=>false]);
-        $out = ['published'=>count($ids),'trending'=>0,'rising'=>0,'missing_sku'=>0,'missing_image'=>0,'missing_price'=>0,'outofstock'=>0];
+        global $wpdb;
+        $published = (int) $wpdb->get_var("SELECT COUNT(ID) FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = 'publish'");
+        $trending = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(DISTINCT p.ID) FROM {$wpdb->posts} p INNER JOIN {$wpdb->postmeta} m ON m.post_id = p.ID WHERE p.post_type = 'product' AND p.post_status = 'publish' AND m.meta_key = %s AND m.meta_value = 'trending'",
+            ProductMeta::TREND_STATUS
+        ));
+        $rising = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(DISTINCT p.ID) FROM {$wpdb->posts} p INNER JOIN {$wpdb->postmeta} m ON m.post_id = p.ID WHERE p.post_type = 'product' AND p.post_status = 'publish' AND m.meta_key = %s AND m.meta_value = 'rising'",
+            ProductMeta::TREND_STATUS
+        ));
 
-        foreach ($ids as $id) {
-            $id = (int) $id;
-            $status = ProductMeta::get($id, ProductMeta::TREND_STATUS, 'stable');
-            if ($status === 'trending') $out['trending']++;
-            if ($status === 'rising') $out['rising']++;
-            if (!function_exists('wc_get_product')) continue;
-            $product = wc_get_product($id);
-            if (!$product) continue;
-            if ($product->get_sku() === '') $out['missing_sku']++;
-            if (!$product->get_image_id()) $out['missing_image']++;
-            if ($product->get_price() === '') $out['missing_price']++;
-            if (!$product->is_in_stock()) $out['outofstock']++;
-        }
-        return $out;
+        $missingSku = (int) $wpdb->get_var("SELECT COUNT(p.ID) FROM {$wpdb->posts} p LEFT JOIN {$wpdb->postmeta} m ON m.post_id = p.ID AND m.meta_key = '_sku' WHERE p.post_type = 'product' AND p.post_status = 'publish' AND (m.meta_id IS NULL OR m.meta_value = '')");
+        $missingImage = (int) $wpdb->get_var("SELECT COUNT(p.ID) FROM {$wpdb->posts} p LEFT JOIN {$wpdb->postmeta} m ON m.post_id = p.ID AND m.meta_key = '_thumbnail_id' WHERE p.post_type = 'product' AND p.post_status = 'publish' AND (m.meta_id IS NULL OR m.meta_value = '0' OR m.meta_value = '')");
+        $missingPrice = (int) $wpdb->get_var("SELECT COUNT(p.ID) FROM {$wpdb->posts} p LEFT JOIN {$wpdb->postmeta} m ON m.post_id = p.ID AND m.meta_key = '_price' WHERE p.post_type = 'product' AND p.post_status = 'publish' AND (m.meta_id IS NULL OR m.meta_value = '')");
+        $outofstock = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(DISTINCT p.ID) FROM {$wpdb->posts} p INNER JOIN {$wpdb->postmeta} m ON m.post_id = p.ID WHERE p.post_type = 'product' AND p.post_status = 'publish' AND m.meta_key = '_stock_status' AND m.meta_value = %s",
+            'outofstock'
+        ));
+
+        return [
+            'published' => $published,
+            'trending' => $trending,
+            'rising' => $rising,
+            'missing_sku' => $missingSku,
+            'missing_image' => $missingImage,
+            'missing_price' => $missingPrice,
+            'outofstock' => $outofstock,
+        ];
     }
 
     private static function topProducts(int $limit): array {
