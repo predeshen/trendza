@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded',function(){
     const b=document.querySelector('.menu-toggle'),m=document.getElementById('mobile-menu');
-    if(b&&m){b.addEventListener('click',function(){const o=b.getAttribute('aria-expanded')==='true';b.setAttribute('aria-expanded',String(!o));m.classList.toggle('is-open',!o);});}
+    if(b&&m){b.addEventListener('click',function(){const o=b.getAttribute('aria-expanded')==='true';const next=!o;b.setAttribute('aria-expanded',String(next));b.setAttribute('aria-label',next?'Close menu':'Open menu');m.hidden=!next;m.classList.toggle('is-open',next);});}
 
     const config=window.trendzaConfig||{};
     const endpoint=config.analyticsEndpoint;
