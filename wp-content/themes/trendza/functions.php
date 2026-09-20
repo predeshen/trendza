@@ -33,6 +33,15 @@ add_action('wp_enqueue_scripts','trendza_assets');
 function trendza_body_classes(array $classes): array { $classes[]='trendza-theme'; if(class_exists('WooCommerce'))$classes[]='trendza-woocommerce'; return $classes; }
 add_filter('body_class','trendza_body_classes');
 
+function trendza_noindex_utility_pages(array $robots): array {
+    if (function_exists('is_cart') && (is_cart() || is_checkout() || is_account_page() || is_search())) {
+        $robots['noindex'] = true;
+        $robots['nofollow'] = true;
+    }
+    return $robots;
+}
+add_filter('wp_robots','trendza_noindex_utility_pages');
+
 function trendza_product_search_query(\WP_Query $query): void {
     if (is_admin() || !$query->is_main_query() || !$query->is_search()) {
         return;
@@ -58,7 +67,15 @@ function trendza_render_product_card(int $product_id): void {
         <a class="product-image" href="<?php echo esc_url($product->get_permalink());?>" aria-label="<?php echo esc_attr($product->get_name());?>"><?php echo wp_kses_post($product->get_image('woocommerce_thumbnail'));?></a>
         <div class="product-body">
             <?php if($product->get_rating_count()):?><div class="product-rating" aria-label="<?php echo esc_attr(sprintf(__('Rated %s out of 5','trendza'),$product->get_average_rating()));?>"><?php echo wp_kses_post(wc_get_rating_html($product->get_average_rating(),$product->get_rating_count()));?></div><?php endif;?>
-            <a class="product-title" href="<?php echo esc_url($product->get_permalink());?>"><?php echo esc_html($product->get_name());?></a><div class="product-price"><?php echo wp_kses_post($product->get_price_html());?></div>
+            <a class="product-title" href="<?php echo esc_url($product->get_permalink());?>"><?php echo esc_html($product->get_name());?></a>
+            <div class="product-price"><?php echo wp_kses_post($product->get_price_html());?></div>
+            <div class="product-card-actions">
+                <?php if($product->is_purchasable() && $product->is_in_stock() && $product->supports('ajax_add_to_cart') && $product->is_type('simple')): ?>
+                    <a href="<?php echo esc_url($product->add_to_cart_url()); ?>" data-quantity="1" class="button add_to_cart_button ajax_add_to_cart" data-product_id="<?php echo esc_attr($product->get_id()); ?>" data-product_sku="<?php echo esc_attr($product->get_sku()); ?>" aria-label="<?php echo esc_attr(sprintf(__('Add %s to cart','trendza'),$product->get_name())); ?>" rel="nofollow"><?php echo esc_html($product->add_to_cart_text()); ?></a>
+                <?php else: ?>
+                    <a class="button button-secondary" href="<?php echo esc_url($product->get_permalink()); ?>"><?php echo esc_html($product->is_purchasable() && $product->is_in_stock() ? __('View options','trendza') : __('View product','trendza')); ?></a>
+                <?php endif; ?>
+            </div>
         </div>
     </article>
     <?php
