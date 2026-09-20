@@ -50,6 +50,8 @@ final class ProductRecommender {
         if ($trend >= 75) $reasons[] = 'currently trending';
         elseif ($trend >= 55) $reasons[] = 'gaining momentum';
         if ($value >= 80) $reasons[] = 'strong value score';
-        return $reasons ? ucfirst(implode(', ', $reasons)) . '.' : 'A relevant alternative based on catalogue signals.';
+
+        if (!$reasons) return 'A relevant alternative based on catalogue signals.';
+        return implode(', ', $reasons) . '.';
     }
 }
