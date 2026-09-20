@@ -3,14 +3,18 @@ namespace Trendza\SEO;
 
 final class SchemaService {
     public static function register(): void {
-        // Trendza owns the core JSON-LD graph. Disable WooCommerce's duplicate graph,
-        // while leaving SEO plugins free to add their own non-overlapping entities.
-        add_filter('woocommerce_structured_data_enabled', '__return_false');
+        // Let established SEO plugins own their graph. Trendza only supplies
+        // product-specific schema when no compatible SEO graph is active.
+        add_filter('woocommerce_structured_data_enabled', [self::class, 'woocommerceStructuredDataEnabled']);
         add_action('wp_head', [self::class, 'output'], 20);
     }
 
+    public static function woocommerceStructuredDataEnabled(bool $enabled): bool {
+        return self::seoPluginActive() ? $enabled : false;
+    }
+
     public static function output(): void {
-        if (is_admin()) {
+        if (is_admin() || self::seoPluginActive()) {
             return;
         }
 
@@ -58,6 +62,12 @@ final class SchemaService {
         ) . '</script>' . PHP_EOL;
     }
 
+    private static function seoPluginActive(): bool {
+        return defined('WPSEO_VERSION')
+            || class_exists('RankMath')
+            || defined('RANK_MATH_VERSION');
+    }
+
     private static function product($product): array {
         $description = wp_strip_all_tags($product->get_short_description() ?: $product->get_description());
         $image = $product->get_image_id() ? wp_get_attachment_image_url($product->get_image_id(), 'full') : null;
@@ -95,43 +105,38 @@ final class SchemaService {
 
     private static function brand($product): ?array {
         $brand = get_post_meta($product->get_id(), '_trendza_brand', true);
-        if (!$brand) {
-            $brand = $product->get_attribute('pa_brand') ?: $product->get_attribute('brand');
-        }
-
+        if (!$brand) $brand = $product->get_attribute('pa_brand') ?: $product->get_attribute('brand');
         return $brand ? ['@type' => 'Brand', 'name' => wp_strip_all_tags((string) $brand)] : null;
     }
 
     private static function siteLogo(): ?string {
         $logo_id = (int) get_theme_mod('custom_logo');
-        if (!$logo_id) {
-            return null;
-        }
-
+        if (!$logo_id) return null;
         $logo = wp_get_attachment_image_url($logo_id, 'full');
         return $logo ?: null;
     }
 
     private static function breadcrumbs($product): array {
-        $items = [
-            [
-                '@type' => 'ListItem',
-                'position' => 1,
-                'name' => get_bloginfo('name'),
-                'item' => home_url('/'),
-            ],
-        ];
+        $items = [[
+            '@type' => 'ListItem',
+            'position' => 1,
+            'name' => get_bloginfo('name'),
+            'item' => home_url('/'),
+        ]];
 
         $terms = get_the_terms($product->get_id(), 'product_cat');
         if ($terms && !is_wp_error($terms)) {
             $term = self::deepestCategory($terms);
             if ($term) {
-                $items[] = [
-                    '@type' => 'ListItem',
-                    'position' => 2,
-                    'name' => $term->name,
-                    'item' => get_term_link($term),
-                ];
+                $link = get_term_link($term);
+                if (!is_wp_error($link)) {
+                    $items[] = [
+                        '@type' => 'ListItem',
+                        'position' => 2,
+                        'name' => $term->name,
+                        'item' => $link,
+                    ];
+                }
             }
         }
 
@@ -149,10 +154,7 @@ final class SchemaService {
     }
 
     private static function deepestCategory(array $terms): ?\WP_Term {
-        usort($terms, static function (\WP_Term $a, \WP_Term $b): int {
-            return ((int) $b->parent) <=> ((int) $a->parent);
-        });
-
+        usort($terms, static fn (\WP_Term $a, \WP_Term $b): int => ((int) $b->parent) <=> ((int) $a->parent));
         return $terms[0] ?? null;
     }
 
@@ -160,14 +162,10 @@ final class SchemaService {
         foreach ($data as $key => $value) {
             if ($value === null || $value === '' || $value === []) {
                 unset($data[$key]);
-                continue;
-            }
-
-            if (is_array($value)) {
+            } elseif (is_array($value)) {
                 $data[$key] = self::cleanNested($value);
             }
         }
-
         return $data;
     }
 
@@ -179,7 +177,6 @@ final class SchemaService {
                 $data[$key] = self::cleanNested($value);
             }
         }
-
         return $data;
     }
 }
