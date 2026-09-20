@@ -27,7 +27,7 @@
         </nav>
 
         <div class="header-actions">
-            <a class="icon-button header-search" href="<?php echo esc_url(home_url('/?post_type=product')); ?>" aria-label="Search products" title="Search products">
+            <a class="icon-button header-search" href="<?php echo esc_url(home_url('/?s=&post_type=product')); ?>" aria-label="Search products" title="Search products">
                 <span aria-hidden="true">⌕</span>
             </a>
             <?php if (class_exists('WooCommerce')) : ?>
