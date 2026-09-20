@@ -57,8 +57,17 @@ final class WooCommerceProductImporter {
         update_post_meta($productId, ProductMeta::SYNC_STATUS, 'synced');
         update_post_meta($productId, ProductMeta::LAST_SYNC, current_time('mysql', true));
 
-        if (!empty($data['brand'])) update_post_meta($productId, ProductMeta::BRAND, sanitize_text_field((string) $data['brand']));
-        $this->syncCategories($productId, (array) ($data['categories'] ?? []));
+        if (array_key_exists('brand', $data)) {
+            $brand = sanitize_text_field((string) $data['brand']);
+            if ($brand !== '') {
+                update_post_meta($productId, ProductMeta::BRAND, $brand);
+            } else {
+                delete_post_meta($productId, ProductMeta::BRAND);
+            }
+        }
+        if (array_key_exists('categories', $data)) {
+            $this->syncCategories($productId, (array) $data['categories']);
+        }
         $this->syncImage($productId, (string) ($data['image'] ?? ''));
         return $productId;
     }
@@ -90,7 +99,7 @@ final class WooCommerceProductImporter {
             }
             if ($parent) $termIds[] = $parent;
         }
-        if ($termIds) wp_set_object_terms($productId, array_values(array_unique($termIds)), 'product_cat', false);
+        wp_set_object_terms($productId, array_values(array_unique($termIds)), 'product_cat', false);
     }
 
     private function syncAttributes(\WC_Product $product, array $attributes): void {
@@ -164,7 +173,7 @@ final class WooCommerceProductImporter {
         }
 
         $body = wp_remote_retrieve_body($response);
-        if ($body === '') {
+        if ($body === '' || strlen($body) > 8 * 1024 * 1024) {
             update_post_meta($productId, ProductMeta::SYNC_STATUS, 'synced_image_error');
             return;
         }
