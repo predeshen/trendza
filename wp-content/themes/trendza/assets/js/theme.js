@@ -18,6 +18,13 @@ document.addEventListener('DOMContentLoaded',function(){
 
         if(search){
             track('search',0,query);
+            search.addEventListener('click',function(event){
+                const link=event.target.closest('a');
+                const card=event.target.closest('[data-trendza-product]');
+                if(!link||!card)return;
+                const id=card.getAttribute('data-trendza-product');
+                if(id)track('search',id,query);
+            });
         }
 
         const observedProducts=new WeakSet();
@@ -40,9 +47,7 @@ document.addEventListener('DOMContentLoaded',function(){
         }
         observeProductViews(document);
 
-        if(config.isCheckout){
-            track('begin_checkout',0);
-        }
+        if(config.isCheckout)track('begin_checkout',0);
     }
 
     const recommendationRoot=document.querySelector('[data-trendza-recommendations]');
@@ -62,7 +67,6 @@ document.addEventListener('DOMContentLoaded',function(){
                         const reason=item.why_recommended?'<p class="recommendation-reason">'+escapeHtml(item.why_recommended)+'</p>':'';
                         return '<article class="product-card recommendation-card" data-trendza-product="'+escapeHtml(item.id||0)+'">'+trend+'<a class="product-image" href="'+escapeHtml(item.url||'#')+'" aria-label="'+escapeHtml(item.name||'')+'">'+image+'</a><div class="product-body"><a class="product-title" href="'+escapeHtml(item.url||'#')+'">'+escapeHtml(item.name||'Product')+'</a><div class="product-price">'+formatPrice(item.price,item.currency)+'</div>'+reason+'</div></article>';
                     }).join('');
-
                     observeProductViews(grid);
                 }).catch(function(){recommendationRoot.remove();});
         }
