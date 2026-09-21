@@ -12,6 +12,31 @@ final class EventStore {
         global $wpdb; $allowed=['view','search','add_to_cart','begin_checkout','purchase']; if(!in_array($eventType,$allowed,true)) return false;
         return false!==$wpdb->insert(self::table(),['product_id'=>max(0,$productId),'event_type'=>$eventType,'occurred_at'=>current_time('mysql',true),'session_hash'=>substr(hash('sha256',$sessionHash),0,64),'metadata'=>$metadata?wp_json_encode($metadata):null],['%d','%s','%s','%s','%s']);
     }
+    /**
+     * Record a session-scoped interaction once within a short window.
+     * This prevents refreshes, SPA re-observation and repeated search clicks
+     * from inflating velocity signals while preserving normal add-to-cart
+     * and purchase events as distinct actions.
+     */
+    public static function recordUnique(int $productId,string $eventType,string $sessionHash='',array $metadata=[],int $windowMinutes=10): bool {
+        global $wpdb;
+        $allowed = ['view', 'search'];
+        if (!in_array($eventType, $allowed, true)) return false;
+
+        $since = gmdate('Y-m-d H:i:s', time() - max(1, $windowMinutes) * MINUTE_IN_SECONDS);
+        $hashedSession = substr(hash('sha256', $sessionHash), 0, 64);
+        $exists = $wpdb->get_var($wpdb->prepare(
+            'SELECT id FROM ' . self::table() . ' WHERE product_id=%d AND event_type=%s AND session_hash=%s AND occurred_at >= %s LIMIT 1',
+            max(0, $productId),
+            $eventType,
+            $hashedSession,
+            $since
+        ));
+
+        if ($exists) return false;
+        return self::record($productId, $eventType, $sessionHash, $metadata);
+    }
+
     public static function count(int $productId,string $eventType,int $hours): int { global $wpdb; $since=gmdate('Y-m-d H:i:s',time()-max(1,$hours)*HOUR_IN_SECONDS); return (int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.self::table().' WHERE product_id=%d AND event_type=%s AND occurred_at >= %s',$productId,$eventType,$since)); }
     public static function countAll(int $hours=24): int { global $wpdb; $since=gmdate('Y-m-d H:i:s',time()-max(1,$hours)*HOUR_IN_SECONDS); return (int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.self::table().' WHERE occurred_at >= %s',$since)); }
     public static function countsByType(int $hours=24): array { global $wpdb; $since=gmdate('Y-m-d H:i:s',time()-max(1,$hours)*HOUR_IN_SECONDS); $rows=$wpdb->get_results($wpdb->prepare('SELECT event_type, COUNT(*) AS total FROM '.self::table().' WHERE occurred_at >= %s GROUP BY event_type',$since),ARRAY_A); $counts=[]; foreach((array)$rows as $row)$counts[sanitize_key($row['event_type'])]=(int)$row['total']; return $counts; }
