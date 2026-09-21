@@ -55,7 +55,7 @@ final class WooCommerceProductImporter {
         }
         $productId = $product->save();
 
-        update_post_meta($productId, ProductMeta::EXTERNAL_ID, $externalId);
+        if ($externalId !== '') update_post_meta($productId, ProductMeta::EXTERNAL_ID, $externalId);
         update_post_meta($productId, ProductMeta::SUPPLIER_CODE, $supplierCode);
         if (array_key_exists('cost', $data)) {
             update_post_meta($productId, ProductMeta::SUPPLIER_COST, max(0, (float) $data['cost']));
@@ -81,13 +81,17 @@ final class WooCommerceProductImporter {
     }
 
     private function syncCategories(int $productId, array $categories): void {
-        // An empty supplier category payload should not wipe existing store
-        // taxonomy assignments. This protects manually curated products when
-        // a feed temporarily omits category data.
+        // Empty supplier category data must never wipe existing taxonomy.
         $categories = array_values(array_filter($categories, static fn ($category): bool => trim((string) $category) !== ''));
         if (!$categories) return;
 
+        $previousSupplierIds = array_values(array_filter(array_map(
+            'intval',
+            (array) get_post_meta($productId, ProductMeta::SUPPLIER_CATEGORIES, true)
+        )));
+        $existingIds = array_map('intval', wp_get_object_terms($productId, 'product_cat', ['fields' => 'ids']));
         $termIds = [];
+
         foreach ($categories as $category) {
             $category = trim(sanitize_text_field((string) $category));
             if ($category === '') continue;
@@ -113,7 +117,12 @@ final class WooCommerceProductImporter {
             }
             if ($parent) $termIds[] = $parent;
         }
-        wp_set_object_terms($productId, array_values(array_unique($termIds)), 'product_cat', false);
+
+        $termIds = array_values(array_unique(array_filter($termIds)));
+        $manualIds = array_values(array_diff($existingIds, $previousSupplierIds));
+        $finalIds = array_values(array_unique(array_merge($manualIds, $termIds)));
+        wp_set_object_terms($productId, $finalIds, 'product_cat', false);
+        update_post_meta($productId, ProductMeta::SUPPLIER_CATEGORIES, $termIds);
     }
 
     private function syncAttributes(\WC_Product $product, array $attributes): void {
@@ -207,9 +216,17 @@ final class WooCommerceProductImporter {
             return;
         }
 
+        $fileName = sanitize_file_name('trendza-product-' . $productId . '.' . $extension);
+        $fileType = wp_check_filetype_and_ext($tmp, $fileName, $type);
+        if (!empty($fileType['type']) && !str_starts_with(strtolower((string) $fileType['type']), 'image/')) {
+            @unlink($tmp);
+            update_post_meta($productId, ProductMeta::SYNC_STATUS, 'synced_image_error');
+            return;
+        }
+
         $file = [
-            'name' => sanitize_file_name('trendza-product-' . $productId . '.' . $extension),
-            'type' => $type,
+            'name' => $fileName,
+            'type' => !empty($fileType['type']) ? $fileType['type'] : $type,
             'tmp_name' => $tmp,
             'error' => 0,
             'size' => filesize($tmp),
