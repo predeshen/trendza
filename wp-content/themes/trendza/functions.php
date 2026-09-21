@@ -85,6 +85,20 @@ function trendza_render_product_card(int $product_id): void {
 function trendza_single_product_trend_badge(): void { global $product; if(!$product)return; $trend=trendza_get_product_trend((int)$product->get_id()); if(!$trend)return; echo '<div class="trendza-product-signal"><span class="trend-badge">'.esc_html(ucfirst($trend['status'])).' · '.esc_html(number_format_i18n($trend['score'],0)).'/100</span><span class="muted">Trend score based on product activity and quality signals.</span></div>'; }
 add_action('woocommerce_single_product_summary','trendza_single_product_trend_badge',4);
 
+function trendza_single_product_trust_row(): void {
+    global $product;
+    if (!$product) return;
+
+    $availability = $product->is_in_stock() ? 'In stock' : 'Currently unavailable';
+    $stock_class = $product->is_in_stock() ? 'is-available' : 'is-unavailable';
+    echo '<div class="trendza-trust-row" aria-label="Product availability and checkout information">';
+    echo '<span class="trust-item ' . esc_attr($stock_class) . '"><i aria-hidden="true"></i>' . esc_html($availability) . '</span>';
+    echo '<span class="trust-item">Secure checkout</span>';
+    echo '<span class="trust-item">Order support</span>';
+    echo '</div>';
+}
+add_action('woocommerce_single_product_summary','trendza_single_product_trust_row',31);
+
 function trendza_render_intelligence_panel(): void {
     global $product; if(!$product)return; $id=(int)$product->get_id();
     $meta=static function(string $key,$default='')use($id){return get_post_meta($id,$key,true)?:$default;}; $trend=trendza_get_product_trend($id);
