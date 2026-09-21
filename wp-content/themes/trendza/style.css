@@ -16,3 +16,8 @@ Text Domain: trendza
 /* Product-card and checkout conversion polish */
 .product-card-actions{display:flex;gap:8px;margin-top:14px}.product-card-actions .button{width:100%;padding:10px 12px;font-size:.84rem}.product-card-actions .added_to_cart{font-size:.78rem;white-space:nowrap}.woocommerce .cart-empty,.woocommerce .return-to-shop{text-align:center}.woocommerce-cart .wc-proceed-to-checkout a.checkout-button{width:100%;padding:15px 20px}.woocommerce-checkout #customer_details,.woocommerce-checkout #order_review{margin-bottom:20px}.woocommerce-checkout .form-row{margin-bottom:14px}.woocommerce .woocommerce-form-coupon-toggle,.woocommerce .woocommerce-form-login-toggle{margin-bottom:16px}.woocommerce .woocommerce-info{border-top-color:var(--tz-cyan)}
 @media(max-width:699px){.product-card-actions .button{min-height:44px}.woocommerce-cart .cart-collaterals .cart_totals{margin-top:20px}.woocommerce-checkout #customer_details,.woocommerce-checkout #order_review{padding:16px}}
+
+
+/* Product trust and availability */
+.trendza-trust-row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 18px}.trust-item{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid var(--tz-border);border-radius:999px;background:rgba(17,24,39,.65);color:var(--tz-muted);font-size:.76rem;font-weight:750}.trust-item.is-available{color:var(--tz-success);border-color:rgba(52,211,153,.22)}.trust-item.is-unavailable{color:var(--tz-danger);border-color:rgba(251,113,133,.22)}.trust-item.is-available i{width:7px;height:7px;border-radius:50%;background:var(--tz-success);box-shadow:0 0 0 3px rgba(52,211,153,.12)}
+@media(max-width:699px){.trendza-trust-row{gap:6px}.trust-item{font-size:.7rem;padding:6px 8px}}
