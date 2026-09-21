@@ -32,6 +32,10 @@ final class AnalyticsController {
             return new \WP_Error('trendza_invalid_product', 'Invalid product', ['status' => 400]);
         }
 
+        if (self::isBot($request)) {
+            return rest_ensure_response(['recorded' => false, 'reason' => 'bot']);
+        }
+
         $clientKey = self::clientKey($request);
         if (!self::withinRateLimit($clientKey)) {
             return new \WP_Error('trendza_rate_limited', 'Too many analytics events', ['status' => 429]);
@@ -41,7 +45,11 @@ final class AnalyticsController {
         if ($event === 'search' && $request->get_param('query')) {
             $metadata['query'] = sanitize_text_field((string) $request->get_param('query'));
         }
-        EventStore::record($productId, $event, $clientKey, $metadata);
+        if (in_array($event, ['view', 'search'], true)) {
+            EventStore::recordUnique($productId, $event, $clientKey, $metadata);
+        } else {
+            EventStore::record($productId, $event, $clientKey, $metadata);
+        }
         return rest_ensure_response(['recorded' => true]);
     }
 
