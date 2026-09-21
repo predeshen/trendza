@@ -57,8 +57,12 @@ final class WooCommerceProductImporter {
 
         update_post_meta($productId, ProductMeta::EXTERNAL_ID, $externalId);
         update_post_meta($productId, ProductMeta::SUPPLIER_CODE, $supplierCode);
-        update_post_meta($productId, ProductMeta::SUPPLIER_COST, (float) ($data['cost'] ?? 0));
-        update_post_meta($productId, ProductMeta::SUPPLIER_RRP, (float) ($data['rrp'] ?? 0));
+        if (array_key_exists('cost', $data)) {
+            update_post_meta($productId, ProductMeta::SUPPLIER_COST, max(0, (float) $data['cost']));
+        }
+        if (array_key_exists('rrp', $data)) {
+            update_post_meta($productId, ProductMeta::SUPPLIER_RRP, max(0, (float) $data['rrp']));
+        }
         update_post_meta($productId, ProductMeta::SYNC_STATUS, 'synced');
         update_post_meta($productId, ProductMeta::LAST_SYNC, current_time('mysql', true));
 
@@ -77,6 +81,12 @@ final class WooCommerceProductImporter {
     }
 
     private function syncCategories(int $productId, array $categories): void {
+        // An empty supplier category payload should not wipe existing store
+        // taxonomy assignments. This protects manually curated products when
+        // a feed temporarily omits category data.
+        $categories = array_values(array_filter($categories, static fn ($category): bool => trim((string) $category) !== ''));
+        if (!$categories) return;
+
         $termIds = [];
         foreach ($categories as $category) {
             $category = trim(sanitize_text_field((string) $category));
