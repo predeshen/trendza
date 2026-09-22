@@ -15,5 +15,6 @@ final class SupplierProduct {
         public readonly array $categories = [],
         public readonly array $attributes = [],
         public readonly float $salePrice = 0.0,
+        public readonly array $variants = [],
     ) {}
 }
