@@ -20,9 +20,20 @@ final class XmlFeedParser implements FeedParserInterface {
                 (string) $node->description,
                 (string) $node->image,
                 $categories,
-                [],
+                self::attributes($node),
                 (float) ($node->sale_price ?: $node->saleprice ?: 0),
             );
         }
+    }
+
+    private static function attributes(\SimpleXMLElement $node): array {
+        $attributes = [];
+        if (!isset($node->attributes)) return $attributes;
+        foreach ($node->attributes->children() as $attribute) {
+            $name = trim((string) ($attribute['name'] ?? $attribute->name ?? ''));
+            $value = trim((string) ($attribute['value'] ?? $attribute));
+            if ($name !== '' && $value !== '') $attributes[$name] = $value;
+        }
+        return $attributes;
     }
 }
