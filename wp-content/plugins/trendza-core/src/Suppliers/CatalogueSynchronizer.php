@@ -29,16 +29,36 @@ final class CatalogueSynchronizer {
 
     private function normaliseVariants(array $variants, float $marginPercent): array {
         $normalised = [];
-        foreach ($variants as $variant) {
+        $externalIds = [];
+        $skus = [];
+
+        foreach ($variants as $index => $variant) {
             if (!is_array($variant)) continue;
+
             $externalId = trim((string) ($variant['external_id'] ?? $variant['id'] ?? ''));
             $sku = trim((string) ($variant['sku'] ?? ''));
             if ($externalId === '' && $sku === '') continue;
+
+            if ($externalId !== '') {
+                if (isset($externalIds[$externalId])) {
+                    throw new \InvalidArgumentException(sprintf('Duplicate supplier variant external_id "%s" at rows %d and %d.', $externalId, $externalIds[$externalId] + 1, $index + 1));
+                }
+                $externalIds[$externalId] = $index;
+            }
+
+            if ($sku !== '') {
+                if (isset($skus[$sku])) {
+                    throw new \InvalidArgumentException(sprintf('Duplicate supplier variant SKU "%s" at rows %d and %d.', $sku, $skus[$sku] + 1, $index + 1));
+                }
+                $skus[$sku] = $index;
+            }
+
             $cost = max(0, (float) ($variant['cost'] ?? 0));
             $price = $this->pricing->calculate($cost, $marginPercent);
             $suppliedPrice = max(0, (float) ($variant['price'] ?? 0));
             if ($suppliedPrice > 0) $price = $suppliedPrice;
             $salePrice = max(0, (float) ($variant['sale_price'] ?? $variant['saleprice'] ?? 0));
+
             $normalised[] = [
                 'external_id' => $externalId,
                 'sku' => $sku,
@@ -52,6 +72,7 @@ final class CatalogueSynchronizer {
                 'image' => trim((string) ($variant['image'] ?? '')),
             ];
         }
+
         return $normalised;
     }
 }
