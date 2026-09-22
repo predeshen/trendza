@@ -5,7 +5,9 @@ use Trendza\Suppliers\XmlFeedParser;
 
 final class SupplierFeedParserTest extends TestCase {
     public function testCsvParsesAttributeColumns(): void {
-        $csv = "external_id,name,cost,rrp,in_stock,attribute_colour,attribute_size,variants\n1,Lamp,100,150,1,White,Large,\"[{\"\"external_id\"\":\"v1\",\"\"sku\"\":\"L-W\",\"\"in_stock\"\":true,\"\"attributes\"\":{\"\"Colour\"\":\"White\"}}]\"\n";
+        $json = '[{"external_id":"v1","sku":"L-W","in_stock":true,"attributes":{"Colour":"White"}}]';
+        $csv = "external_id,name,cost,rrp,in_stock,attribute_colour,attribute_size,variants\n";
+        $csv .= '1,Lamp,100,150,1,White,Large,"' . str_replace('"', '""', $json) . '"' . "\n";
         $items = iterator_to_array((new CsvFeedParser())->parse($csv));
 
         self::assertCount(1, $items);
