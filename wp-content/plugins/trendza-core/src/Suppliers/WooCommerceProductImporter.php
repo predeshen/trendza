@@ -220,6 +220,7 @@ final class WooCommerceProductImporter {
             if ($externalId === '' && $sku === '') continue;
 
             $variationId = $sku !== '' ? (int) wc_get_product_id_by_sku($sku) : 0;
+            if ($variationId && (int) wp_get_post_parent_id($variationId) !== $productId) $variationId = 0;
             if (!$variationId && $externalId !== '') {
                 $ids = get_posts([
                     'post_type' => 'product_variation',
@@ -231,7 +232,8 @@ final class WooCommerceProductImporter {
                         ['key' => ProductMeta::SUPPLIER_CODE, 'value' => sanitize_key((string) get_post_meta($productId, ProductMeta::SUPPLIER_CODE, true))],
                     ],
                 ]);
-                $variationId = (int) ($ids[0] ?? 0);
+                $candidateId = (int) ($ids[0] ?? 0);
+                $variationId = $candidateId && (int) wp_get_post_parent_id($candidateId) === $productId ? $candidateId : 0;
             }
 
             $variation = $variationId ? new \WC_Product_Variation($variationId) : new \WC_Product_Variation();
