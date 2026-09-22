@@ -10,7 +10,9 @@ final class CsvFeedParser implements FeedParserInterface {
         $headers = array_map(static fn($h) => strtolower(trim((string) $h)), $headers);
         while (($row = fgetcsv($stream)) !== false) {
             if (count(array_filter($row, static fn($v) => trim((string)$v) !== '')) === 0) continue;
-            $data = array_combine($headers, array_pad($row, count($headers), ''));
+            $row = array_pad($row, count($headers), '');
+            if (count($row) > count($headers)) $row = array_slice($row, 0, count($headers));
+            $data = array_combine($headers, $row);
             if (!$data) continue;
             yield new SupplierProduct(
                 (string) ($data['external_id'] ?? $data['id'] ?? ''),
