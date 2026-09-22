@@ -27,6 +27,7 @@ final class ProductMeta {
     public const SOURCE_IMAGE = '_trendza_source_image';
     public const SUPPLIER_ATTRIBUTES = '_trendza_supplier_attributes';
     public const SUPPLIER_CATEGORIES = '_trendza_supplier_categories';
+    public const SUPPLIER_VARIATIONS = '_trendza_supplier_variations';
 
     public static function get(int $productId, string $key, $default = '') {
         $value = get_post_meta($productId, $key, true);
