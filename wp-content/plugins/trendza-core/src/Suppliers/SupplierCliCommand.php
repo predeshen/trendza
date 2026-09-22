@@ -22,18 +22,79 @@ final class SupplierCliCommand {
     public static function sync(array $args, array $assocArgs): void {
         [$code, $url] = $args;
         $format = strtolower((string) ($assocArgs['format'] ?? 'csv'));
+        if (!in_array($format, ['csv', 'xml'], true)) {
+            \WP_CLI::error('Invalid format. Use csv or xml.');
+        }
+
+        $margin = (float) ($assocArgs['margin'] ?? 25);
+        if ($margin < 0 || $margin >= 90) {
+            \WP_CLI::error('Margin must be at least 0 and below 90 percent.');
+        }
+
         $parser = $format === 'xml' ? new XmlFeedParser() : new CsvFeedParser();
         $supplier = new RemoteFeedSupplier($code, $url, $parser);
         $normalizer = new CatalogueSynchronizer(new PricingEngine(), new ProductDeduplicator());
+
         if (isset($assocArgs['dry-run'])) {
             $seen = 0;
-            foreach ($supplier->fetch() as $item) { $normalizer->normalise($item, (float)($assocArgs['margin'] ?? 25)); $seen++; }
-            \WP_CLI::success("Dry run completed: {$seen} products validated.");
+            $valid = 0;
+            $skipped = 0;
+            $errors = [];
+
+            foreach ($supplier->fetch() as $item) {
+                $seen++;
+                try {
+                    if (!$item instanceof SupplierProduct) {
+                        throw new \InvalidArgumentException('Supplier returned an invalid product.');
+                    }
+
+                    $data = $normalizer->normalise($item, $margin);
+                    if ($data['name'] === '' || $data['dedupe_key'] === '') {
+                        $skipped++;
+                        $errors[] = [
+                            'external_id' => $item->externalId,
+                            'message' => 'Missing product name or external_id/SKU.',
+                        ];
+                        continue;
+                    }
+
+                    $valid++;
+                } catch (\Throwable $e) {
+                    $errors[] = [
+                        'external_id' => $item instanceof SupplierProduct ? $item->externalId : '',
+                        'message' => $e->getMessage(),
+                    ];
+                }
+            }
+
+            \WP_CLI::success(sprintf(
+                'Dry run complete: %d seen, %d valid, %d skipped, %d errors. No products were written.',
+                $seen,
+                $valid,
+                $skipped,
+                count($errors)
+            ));
+
+            foreach ($errors as $error) {
+                \WP_CLI::warning(($error['external_id'] !== '' ? $error['external_id'] . ': ' : '') . $error['message']);
+            }
             return;
         }
+
         $service = new SupplierSyncService($normalizer, new WooCommerceProductImporter());
-        $result = $service->sync($supplier, (float)($assocArgs['margin'] ?? 25));
-        \WP_CLI::success(sprintf('Sync complete: %d seen, %d created, %d updated, %d skipped, %d errors.', $result->seen, $result->created, $result->updated, $result->skipped, count($result->errors)));
-        foreach ($result->errors as $error) \WP_CLI::warning($error['external_id'] . ': ' . $error['message']);
+        $result = $service->sync($supplier, $margin);
+
+        \WP_CLI::success(sprintf(
+            'Sync complete: %d seen, %d created, %d updated, %d skipped, %d errors.',
+            $result->seen,
+            $result->created,
+            $result->updated,
+            $result->skipped,
+            count($result->errors)
+        ));
+
+        foreach ($result->errors as $error) {
+            \WP_CLI::warning($error['external_id'] . ': ' . $error['message']);
+        }
     }
 }
