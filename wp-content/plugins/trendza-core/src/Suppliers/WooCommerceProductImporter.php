@@ -22,7 +22,12 @@ final class WooCommerceProductImporter {
             $id = (int) ($ids[0] ?? 0);
         }
 
-        $product = $id ? wc_get_product($id) : new \WC_Product_Simple();
+        $hasVariants = !empty($data['variants']) && is_array($data['variants']);
+        if ($id) {
+            $product = $hasVariants ? new \WC_Product_Variable($id) : wc_get_product($id);
+        } else {
+            $product = $hasVariants ? new \WC_Product_Variable() : new \WC_Product_Simple();
+        }
         if (!$product) throw new \RuntimeException('Unable to load WooCommerce product.');
 
         $product->set_name($name);
@@ -50,8 +55,8 @@ final class WooCommerceProductImporter {
             $product->set_stock_status(!empty($data['in_stock']) ? 'instock' : 'outofstock');
         }
 
-        if (array_key_exists('attributes', $data)) {
-            $this->syncAttributes($product, (array) $data['attributes']);
+        if (array_key_exists('attributes', $data) || $hasVariants) {
+            $this->syncAttributes($product, (array) ($data['attributes'] ?? []), $hasVariants ? $this->variantAttributeOptions((array) $data['variants']) : [], $hasVariants);
         }
         $productId = $product->save();
 
@@ -76,6 +81,9 @@ final class WooCommerceProductImporter {
         }
         if (array_key_exists('image', $data)) {
             $this->syncImage($productId, (string) $data['image']);
+        }
+        if ($hasVariants) {
+            $this->syncVariants($productId, (array) $data['variants'], $updatePrice, $updateStock);
         }
         return $productId;
     }
@@ -125,7 +133,7 @@ final class WooCommerceProductImporter {
         update_post_meta($productId, ProductMeta::SUPPLIER_CATEGORIES, $termIds);
     }
 
-    private function syncAttributes(\WC_Product $product, array $attributes): void {
+    private function syncAttributes(\WC_Product $product, array $attributes, array $variantOptions = [], bool $variationEnabled = false): void {
         $previousSupplierNames = array_values(array_filter(array_map(
             'strval',
             (array) get_post_meta($product->get_id(), ProductMeta::SUPPLIER_ATTRIBUTES, true)
@@ -154,16 +162,116 @@ final class WooCommerceProductImporter {
             $attribute = new \WC_Product_Attribute();
             $attribute->set_id(0);
             $attribute->set_name($name);
-            $attribute->set_options([$value]);
+            $options = $variationEnabled && isset($variantOptions[$name]) ? $variantOptions[$name] : [$value];
+            $options = array_values(array_unique(array_filter(array_map(static fn ($option): string => sanitize_text_field((string) $option), $options))));
+            if (!$options) $options = [$value];
+            $attribute->set_options($options);
             $attribute->set_position($position++);
             $attribute->set_visible(true);
-            $attribute->set_variation(false);
+            $attribute->set_variation($variationEnabled);
             $existing[sanitize_title($name)] = $attribute;
             $managedNames[] = $name;
         }
 
         $product->set_attributes(array_values($existing));
         update_post_meta($product->get_id(), ProductMeta::SUPPLIER_ATTRIBUTES, array_values(array_unique($managedNames)));
+    }
+
+
+    private function variantAttributeOptions(array $variants): array {
+        $options = [];
+        foreach ($variants as $variant) {
+            if (!is_array($variant) || !is_array($variant['attributes'] ?? null)) continue;
+            foreach ($variant['attributes'] as $name => $value) {
+                $name = sanitize_text_field((string) $name);
+                $value = sanitize_text_field(is_array($value) ? implode(', ', $value) : (string) $value);
+                if ($name === '' || $value === '') continue;
+                $options[$name][] = $value;
+            }
+        }
+        foreach ($options as $name => $values) {
+            $options[$name] = array_values(array_unique($values));
+        }
+        return $options;
+    }
+
+    private function syncVariants(int $productId, array $variants, bool $updatePrice, bool $updateStock): void {
+        if (!class_exists('WC_Product_Variable') || !class_exists('WC_Product_Variation')) return;
+
+        $parent = new \WC_Product_Variable($productId);
+        $previousIds = array_values(array_filter(array_map(
+            'intval',
+            (array) get_post_meta($productId, ProductMeta::SUPPLIER_VARIATIONS, true)
+        )));
+        $managedIds = [];
+
+        foreach ($variants as $variantData) {
+            if (!is_array($variantData)) continue;
+            $externalId = sanitize_text_field((string) ($variantData['external_id'] ?? ''));
+            $sku = sanitize_text_field((string) ($variantData['sku'] ?? ''));
+            if ($externalId === '' && $sku === '') continue;
+
+            $variationId = $sku !== '' ? (int) wc_get_product_id_by_sku($sku) : 0;
+            if (!$variationId && $externalId !== '') {
+                $ids = get_posts([
+                    'post_type' => 'product_variation',
+                    'post_status' => 'any',
+                    'numberposts' => 1,
+                    'fields' => 'ids',
+                    'meta_query' => [
+                        ['key' => ProductMeta::EXTERNAL_ID, 'value' => $externalId],
+                        ['key' => ProductMeta::SUPPLIER_CODE, 'value' => sanitize_key((string) get_post_meta($productId, ProductMeta::SUPPLIER_CODE, true))],
+                    ],
+                ]);
+                $variationId = (int) ($ids[0] ?? 0);
+            }
+
+            $variation = $variationId ? new \WC_Product_Variation($variationId) : new \WC_Product_Variation();
+            $variation->set_parent_id($productId);
+            $variationName = sanitize_text_field((string) ($variantData['name'] ?? ''));
+            if ($variationName !== '') $variation->set_description($variationName);
+
+            if ($sku !== '') {
+                $currentSku = (string) $variation->get_sku();
+                if ($sku !== $currentSku) $variation->set_sku($sku);
+            }
+
+            if ($updatePrice && array_key_exists('price', $variantData)) {
+                $price = max(0, (float) $variantData['price']);
+                $variation->set_regular_price(wc_format_decimal($price));
+                $salePrice = max(0, (float) ($variantData['sale_price'] ?? 0));
+                $variation->set_sale_price($salePrice > 0 && $salePrice < $price ? wc_format_decimal($salePrice) : '');
+            }
+
+            if ($updateStock && array_key_exists('in_stock', $variantData)) {
+                $variation->set_manage_stock(false);
+                $variation->set_stock_status(!empty($variantData['in_stock']) ? 'instock' : 'outofstock');
+            }
+
+            $variationAttributes = [];
+            foreach ((array) ($variantData['attributes'] ?? []) as $name => $value) {
+                $name = sanitize_title((string) $name);
+                $value = sanitize_title(is_array($value) ? implode(', ', $value) : (string) $value);
+                if ($name !== '' && $value !== '') $variationAttributes[$name] = $value;
+            }
+            if ($variationAttributes) $variation->set_attributes($variationAttributes);
+
+            $savedId = $variation->save();
+            if (!$savedId) continue;
+            $managedIds[] = (int) $savedId;
+            if ($externalId !== '') update_post_meta($savedId, ProductMeta::EXTERNAL_ID, $externalId);
+            update_post_meta($savedId, ProductMeta::SUPPLIER_CODE, sanitize_key((string) get_post_meta($productId, ProductMeta::SUPPLIER_CODE, true)));
+            if (array_key_exists('cost', $variantData)) update_post_meta($savedId, ProductMeta::SUPPLIER_COST, max(0, (float) $variantData['cost']));
+            if (array_key_exists('rrp', $variantData)) update_post_meta($savedId, ProductMeta::SUPPLIER_RRP, max(0, (float) $variantData['rrp']));
+        }
+
+        foreach (array_diff($previousIds, $managedIds) as $staleId) {
+            if ($staleId > 0) wp_delete_post($staleId, true);
+        }
+
+        update_post_meta($productId, ProductMeta::SUPPLIER_VARIATIONS, array_values(array_unique($managedIds)));
+        $parent->set_default_attributes([]);
+        $parent->save();
     }
 
     private function syncImage(int $productId, string $imageUrl): void {
