@@ -23,7 +23,7 @@ final class CsvFeedParser implements FeedParserInterface {
                 (string) ($data['description'] ?? ''),
                 (string) ($data['image'] ?? ''),
                 array_filter(array_map('trim', explode('|', (string) ($data['categories'] ?? '')))),
-                [],
+                self::attributes($data),
                 (float) ($data['sale_price'] ?? $data['saleprice'] ?? 0),
             );
         }
