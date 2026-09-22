@@ -185,7 +185,6 @@ final class WooCommerceProductImporter {
         update_post_meta($product->get_id(), ProductMeta::SUPPLIER_ATTRIBUTES, array_values(array_unique($managedNames)));
     }
 
-
     private function variantAttributeOptions(array $variants): array {
         $options = [];
         foreach ($variants as $variant) {
@@ -273,10 +272,20 @@ final class WooCommerceProductImporter {
             update_post_meta($savedId, ProductMeta::SUPPLIER_CODE, sanitize_key((string) get_post_meta($productId, ProductMeta::SUPPLIER_CODE, true)));
             if (array_key_exists('cost', $variantData)) update_post_meta($savedId, ProductMeta::SUPPLIER_COST, max(0, (float) $variantData['cost']));
             if (array_key_exists('rrp', $variantData)) update_post_meta($savedId, ProductMeta::SUPPLIER_RRP, max(0, (float) $variantData['rrp']));
+
+            if (array_key_exists('image', $variantData)) {
+                $this->syncImage((int) $savedId, (string) $variantData['image']);
+            }
         }
 
         foreach (array_diff($previousIds, $managedIds) as $staleId) {
-            if ($staleId > 0) wp_delete_post($staleId, true);
+            if ($staleId > 0) {
+                $oldImageId = (int) get_post_thumbnail_id($staleId);
+                wp_delete_post($staleId, true);
+                if ($oldImageId > 0 && (int) get_post_field('post_parent', $oldImageId) === $staleId) {
+                    wp_delete_attachment($oldImageId, true);
+                }
+            }
         }
 
         update_post_meta($productId, ProductMeta::SUPPLIER_VARIATIONS, array_values(array_unique($managedIds)));
