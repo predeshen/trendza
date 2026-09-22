@@ -3,7 +3,6 @@ namespace Trendza\Suppliers;
 
 final class SupplierSyncService {
     private const SNAPSHOT_PREFIX = 'trendza_supplier_feed_';
-    private const MIN_FEED_RETENTION = 0.50;
 
     public function __construct(private CatalogueSynchronizer $normalizer, private WooCommerceProductImporter $importer) {}
 
@@ -29,16 +28,15 @@ final class SupplierSyncService {
             );
         }
 
-        $supplierCode = $supplier->getCode();
-        $this->assertFeedChangeIsSafe($supplierCode, $items);
+        $this->assertFeedChangeIsSafe($supplierCode, $items, $effective, $forceShrink);
 
         $result = new SyncResult();
         foreach ($items as $item) {
             $result->seen++;
             try {
-                $data = $this->normalizer->normalise($item, $marginPercent);
+                $data = $this->normalizer->normalise($item, $effective->marginPercent);
                 $existing = $this->findExisting($supplierCode, $data['external_id'], $data['sku']);
-                $this->importer->import($data, $supplierCode, $updatePrice, $updateStock);
+                $this->importer->import($data, $supplierCode, $effective->updatePrice, $effective->updateStock);
                 if ($existing) $result->updated++; else $result->created++;
             } catch (\Throwable $e) {
                 $result->error($item instanceof SupplierProduct ? $item->externalId : '', $e->getMessage());
@@ -113,7 +111,7 @@ final class SupplierSyncService {
         return $errors;
     }
 
-    private function assertFeedChangeIsSafe(string $supplierCode, array $items): void {
+    private function assertFeedChangeIsSafe(string $supplierCode, array $items, SupplierConfig $config, bool $forceShrink): void {
         $key = self::SNAPSHOT_PREFIX . sanitize_key($supplierCode);
         $previous = get_option($key, null);
 
@@ -123,13 +121,13 @@ final class SupplierSyncService {
         $currentCount = count($items);
         $retention = $currentCount / $previousCount;
 
-        if ($retention < self::MIN_FEED_RETENTION) {
+        if (!$forceShrink && $retention < $config->minimumFeedRetention) {
             throw new \RuntimeException(sprintf(
                 'Supplier feed contains %d products versus %d in the previous successful feed (%.1f%% retained). Import aborted because the catalogue shrank below the %.0f%% safety threshold.',
                 $currentCount,
                 $previousCount,
                 $retention * 100,
-                self::MIN_FEED_RETENTION * 100
+                $config->minimumFeedRetention * 100
             ));
         }
     }
