@@ -43,14 +43,14 @@ final class WooCommerceProductImporter {
             $product->set_short_description($short);
         }
 
-        if ($updatePrice && array_key_exists('price', $data)) {
+        if (!$hasVariants && $updatePrice && array_key_exists('price', $data)) {
             $price = max(0, (float) $data['price']);
             $product->set_regular_price(wc_format_decimal($price));
             $salePrice = array_key_exists('sale_price', $data) ? max(0, (float) $data['sale_price']) : 0;
             $product->set_sale_price($salePrice > 0 && $salePrice < $price ? wc_format_decimal($salePrice) : '');
         }
 
-        if ($updateStock && array_key_exists('in_stock', $data)) {
+        if (!$hasVariants && $updateStock && array_key_exists('in_stock', $data)) {
             $product->set_manage_stock(false);
             $product->set_stock_status(!empty($data['in_stock']) ? 'instock' : 'outofstock');
         }
@@ -143,6 +143,14 @@ final class WooCommerceProductImporter {
         foreach ($previousSupplierNames as $name) {
             $key = sanitize_title($name);
             if (isset($existing[$key])) unset($existing[$key]);
+        }
+
+        if ($variationEnabled) {
+            foreach ($variantOptions as $name => $options) {
+                if (!array_key_exists($name, $attributes) && !empty($options)) {
+                    $attributes[$name] = $options[0];
+                }
+            }
         }
 
         $managedNames = [];
