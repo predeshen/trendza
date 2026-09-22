@@ -14,7 +14,9 @@ final class SupplierCliCommand {
      * <code> Supplier code.
      * <url> Feed URL.
      * [--format=<csv|xml>] Feed format. Defaults to csv.
-     * [--margin=<percent>] Target gross margin. Defaults to 25.
+     * [--margin=<percent>] Override the supplier's configured target gross margin.
+     * [--max-products=<count>] Override the supplier's configured product safety limit.
+     * [--force-shrink] Allow a feed below the configured retention threshold.
      * [--dry-run] Validate and normalize without writing products.
      *
      * @when after_wp_load
@@ -48,7 +50,10 @@ final class SupplierCliCommand {
                         throw new \InvalidArgumentException('Supplier returned an invalid product.');
                     }
 
-                    $data = $normalizer->normalise($item, $margin);
+                    if ($seen > $config->maxProducts) {
+                        throw new \\RuntimeException(sprintf('Feed exceeds the %d-product safety limit.', $config->maxProducts));
+                    }
+                    $data = $normalizer->normalise($item, $config->marginPercent);
                     if ($data['name'] === '' || $data['dedupe_key'] === '') {
                         $skipped++;
                         $errors[] = [
@@ -82,7 +87,7 @@ final class SupplierCliCommand {
         }
 
         $service = new SupplierSyncService($normalizer, new WooCommerceProductImporter());
-        $result = $service->sync($supplier, $margin);
+        $result = $service->sync($supplier, $config->marginPercent, $config->updatePrice, $config->updateStock, $config, isset($assocArgs['force-shrink']));
 
         \WP_CLI::success(sprintf(
             'Sync complete: %d seen, %d created, %d updated, %d skipped, %d errors.',
