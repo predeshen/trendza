@@ -52,7 +52,6 @@ final class SupplierSyncService {
     private function preflight(array $items, float $marginPercent): array {
         $errors = [];
         $parentKeys = [];
-        $variantExternalIds = [];
         $variantSkus = [];
 
         foreach ($items as $index => $item) {
@@ -92,33 +91,18 @@ final class SupplierSyncService {
             }
 
             foreach ($data['variants'] as $variant) {
-                $externalId = (string) ($variant['external_id'] ?? '');
                 $sku = (string) ($variant['sku'] ?? '');
+                if ($sku === '') continue;
 
-                if ($externalId !== '') {
-                    if (isset($variantExternalIds[$externalId])) {
-                        $errors[] = sprintf(
-                            'Duplicate variant external_id "%s" at rows %d and %d.',
-                            $externalId,
-                            $variantExternalIds[$externalId] + 1,
-                            $row
-                        );
-                    } else {
-                        $variantExternalIds[$externalId] = $index;
-                    }
-                }
-
-                if ($sku !== '') {
-                    if (isset($variantSkus[$sku])) {
-                        $errors[] = sprintf(
-                            'Duplicate variant SKU "%s" at rows %d and %d.',
-                            $sku,
-                            $variantSkus[$sku] + 1,
-                            $row
-                        );
-                    } else {
-                        $variantSkus[$sku] = $index;
-                    }
+                if (isset($variantSkus[$sku])) {
+                    $errors[] = sprintf(
+                        'Duplicate variant SKU "%s" at rows %d and %d.',
+                        $sku,
+                        $variantSkus[$sku] + 1,
+                        $row
+                    );
+                } else {
+                    $variantSkus[$sku] = $index;
                 }
             }
         }
