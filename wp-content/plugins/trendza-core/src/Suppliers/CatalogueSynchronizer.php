@@ -23,6 +23,35 @@ final class CatalogueSynchronizer {
             'categories' => $item->categories,
             'attributes' => $item->attributes,
             'dedupe_key' => $this->deduplicator->key($item),
+            'variants' => $this->normaliseVariants($item->variants, $marginPercent),
         ];
+    }
+
+    private function normaliseVariants(array $variants, float $marginPercent): array {
+        $normalised = [];
+        foreach ($variants as $variant) {
+            if (!is_array($variant)) continue;
+            $externalId = trim((string) ($variant['external_id'] ?? $variant['id'] ?? ''));
+            $sku = trim((string) ($variant['sku'] ?? ''));
+            if ($externalId === '' && $sku === '') continue;
+            $cost = max(0, (float) ($variant['cost'] ?? 0));
+            $price = $this->pricing->calculate($cost, $marginPercent);
+            $suppliedPrice = max(0, (float) ($variant['price'] ?? 0));
+            if ($suppliedPrice > 0) $price = $suppliedPrice;
+            $salePrice = max(0, (float) ($variant['sale_price'] ?? $variant['saleprice'] ?? 0));
+            $normalised[] = [
+                'external_id' => $externalId,
+                'sku' => $sku,
+                'name' => trim((string) ($variant['name'] ?? $variant['title'] ?? '')),
+                'cost' => round($cost, 2),
+                'price' => round($price, 2),
+                'sale_price' => $salePrice > 0 && $salePrice < $price ? round($salePrice, 2) : 0.0,
+                'rrp' => round(max(0, (float) ($variant['rrp'] ?? 0)), 2),
+                'in_stock' => !empty($variant['in_stock']),
+                'attributes' => is_array($variant['attributes'] ?? null) ? $variant['attributes'] : [],
+                'image' => trim((string) ($variant['image'] ?? '')),
+            ];
+        }
+        return $normalised;
     }
 }
