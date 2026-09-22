@@ -22,8 +22,36 @@ final class XmlFeedParser implements FeedParserInterface {
                 $categories,
                 self::attributes($node),
                 (float) ($node->sale_price ?: $node->saleprice ?: 0),
+                self::variants($node),
             );
         }
+    }
+
+    private static function variants(\SimpleXMLElement $node): array {
+        if (!isset($node->variants)) return [];
+        $variants = [];
+        foreach ($node->variants->variant as $variant) {
+            $attributes = [];
+            if (isset($variant->attributes)) {
+                foreach ($variant->attributes->children() as $attribute) {
+                    $name = trim((string) ($attribute['name'] ?? $attribute->name ?? ''));
+                    $value = trim((string) ($attribute['value'] ?? $attribute));
+                    if ($name !== '' && $value !== '') $attributes[$name] = $value;
+                }
+            }
+            $variants[] = [
+                'external_id' => trim((string) ($variant->external_id ?: $variant->id)),
+                'sku' => trim((string) $variant->sku),
+                'name' => trim((string) ($variant->name ?: $variant->title)),
+                'cost' => (float) $variant->cost,
+                'rrp' => (float) $variant->rrp,
+                'sale_price' => (float) ($variant->sale_price ?: $variant->saleprice ?: 0),
+                'in_stock' => filter_var((string) ($variant->in_stock ?? '1'), FILTER_VALIDATE_BOOLEAN),
+                'attributes' => $attributes,
+                'image' => trim((string) $variant->image),
+            ];
+        }
+        return $variants;
     }
 
     private static function attributes(\SimpleXMLElement $node): array {
