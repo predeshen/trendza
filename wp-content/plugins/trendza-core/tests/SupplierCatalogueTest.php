@@ -68,6 +68,56 @@ final class SupplierCatalogueTest extends TestCase {
         self::assertSame(['Colour' => 'White'], $result['variants'][0]['attributes']);
     }
 
+    public function testDuplicateVariantExternalIdsAreRejected(): void {
+        $item = new SupplierProduct(
+            'ABC-126',
+            'Product',
+            100,
+            150,
+            true,
+            'PARENT',
+            '',
+            '',
+            '',
+            [],
+            [],
+            0,
+            [
+                ['external_id' => 'V-1', 'sku' => 'V-1-A', 'cost' => 50],
+                ['external_id' => 'V-1', 'sku' => 'V-1-B', 'cost' => 55],
+            ]
+        );
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Duplicate supplier variant external_id "V-1"');
+        (new CatalogueSynchronizer(new PricingEngine(), new ProductDeduplicator()))->normalise($item);
+    }
+
+    public function testDuplicateVariantSkusAreRejected(): void {
+        $item = new SupplierProduct(
+            'ABC-127',
+            'Product',
+            100,
+            150,
+            true,
+            'PARENT',
+            '',
+            '',
+            '',
+            [],
+            [],
+            0,
+            [
+                ['external_id' => 'V-1', 'sku' => 'V-SAME', 'cost' => 50],
+                ['external_id' => 'V-2', 'sku' => 'V-SAME', 'cost' => 55],
+            ]
+        );
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Duplicate supplier variant SKU "V-SAME"');
+        (new CatalogueSynchronizer(new PricingEngine(), new ProductDeduplicator()))->normalise($item);
+    }
+
     public function testInvalidSalePriceIsNotApplied(): void {
         $item = new SupplierProduct('ABC-124', 'Product', 100, 150, true, '', '', '', '', [], [], 120);
 
