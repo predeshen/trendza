@@ -34,6 +34,40 @@ final class SupplierCatalogueTest extends TestCase {
         self::assertSame('sku:sku-001', $result['dedupe_key']);
     }
 
+    public function testVariantsAreNormalisedWithIndependentPricing(): void {
+        $item = new SupplierProduct(
+            'ABC-125',
+            'Product',
+            100,
+            150,
+            true,
+            'PARENT',
+            '',
+            '',
+            '',
+            [],
+            [],
+            0,
+            [
+                [
+                    'external_id' => 'V-1',
+                    'sku' => 'V-1-SKU',
+                    'cost' => 50,
+                    'rrp' => 80,
+                    'in_stock' => true,
+                    'attributes' => ['Colour' => 'White'],
+                ],
+            ]
+        );
+
+        $result = (new CatalogueSynchronizer(new PricingEngine(), new ProductDeduplicator()))->normalise($item);
+
+        self::assertCount(1, $result['variants']);
+        self::assertSame('V-1', $result['variants'][0]['external_id']);
+        self::assertSame(66.67, $result['variants'][0]['price']);
+        self::assertSame(['Colour' => 'White'], $result['variants'][0]['attributes']);
+    }
+
     public function testInvalidSalePriceIsNotApplied(): void {
         $item = new SupplierProduct('ABC-124', 'Product', 100, 150, true, '', '', '', '', [], [], 120);
 
