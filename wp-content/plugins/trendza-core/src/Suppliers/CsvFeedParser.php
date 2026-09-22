@@ -29,4 +29,16 @@ final class CsvFeedParser implements FeedParserInterface {
         }
         fclose($stream);
     }
+
+    private static function attributes(array $data): array {
+        $attributes = [];
+        foreach ($data as $key => $value) {
+            $key = trim((string) $key);
+            if (!str_starts_with($key, 'attribute_')) continue;
+            $name = trim(substr($key, 10));
+            $value = trim((string) $value);
+            if ($name !== '' && $value !== '') $attributes[$name] = $value;
+        }
+        return $attributes;
+    }
 }
