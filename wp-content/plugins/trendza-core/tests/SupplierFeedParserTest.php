@@ -16,6 +16,15 @@ final class SupplierFeedParserTest extends TestCase {
         self::assertSame('L-W', $items[0]->variants[0]['sku']);
     }
 
+    public function testCsvParsesVariantImage(): void {
+        $json = '[{"external_id":"v1","sku":"L-W","image":"https://example.com/white.jpg","in_stock":true}]';
+        $csv = "external_id,name,cost,rrp,in_stock,variants\n";
+        $csv .= '1,Lamp,100,150,1,"' . str_replace('"', '""', $json) . '"' . "\n";
+        $items = iterator_to_array((new CsvFeedParser())->parse($csv));
+
+        self::assertSame('https://example.com/white.jpg', $items[0]->variants[0]['image']);
+    }
+
     public function testXmlParsesNamedAttributes(): void {
         $xml = '<products><product><id>1</id><name>Lamp</name><cost>100</cost><rrp>150</rrp><in_stock>1</in_stock><attributes><attribute name="Colour" value="White"/><attribute name="Size">Large</attribute></attributes><variants><variant><id>v1</id><sku>L-W</sku><in_stock>1</in_stock><attributes><attribute name="Colour" value="White"/></attributes></variant></variants></product></products>';
         $items = iterator_to_array((new XmlFeedParser())->parse($xml));
@@ -24,5 +33,12 @@ final class SupplierFeedParserTest extends TestCase {
         self::assertSame(['Colour' => 'White', 'Size' => 'Large'], $items[0]->attributes);
         self::assertSame('v1', $items[0]->variants[0]['external_id']);
         self::assertSame('L-W', $items[0]->variants[0]['sku']);
+    }
+
+    public function testXmlParsesVariantImage(): void {
+        $xml = '<products><product><id>1</id><name>Lamp</name><cost>100</cost><rrp>150</rrp><in_stock>1</in_stock><variants><variant><id>v1</id><sku>L-W</sku><image>https://example.com/white.jpg</image><in_stock>1</in_stock></variant></variants></product></products>';
+        $items = iterator_to_array((new XmlFeedParser())->parse($xml));
+
+        self::assertSame('https://example.com/white.jpg', $items[0]->variants[0]['image']);
     }
 }
