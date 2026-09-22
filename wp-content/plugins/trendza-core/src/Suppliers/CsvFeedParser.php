@@ -25,9 +25,17 @@ final class CsvFeedParser implements FeedParserInterface {
                 array_filter(array_map('trim', explode('|', (string) ($data['categories'] ?? '')))),
                 self::attributes($data),
                 (float) ($data['sale_price'] ?? $data['saleprice'] ?? 0),
+                self::variants($data['variants'] ?? ''),
             );
         }
         fclose($stream);
+    }
+
+    private static function variants(string $value): array {
+        if (trim($value) === '') return [];
+        $decoded = json_decode($value, true);
+        if (!is_array($decoded)) return [];
+        return array_values(array_filter($decoded, static fn ($variant): bool => is_array($variant)));
     }
 
     private static function attributes(array $data): array {
