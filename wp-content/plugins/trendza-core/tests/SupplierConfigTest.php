@@ -1,6 +1,7 @@
 <?php
 use PHPUnit\Framework\TestCase;
 use Trendza\Suppliers\SupplierConfig;
+use Trendza\Suppliers\SupplierConfigRegistry;
 
 final class SupplierConfigTest extends TestCase {
     public function testDefaultsAreSafeForCuratedCatalogue(): void {
@@ -26,6 +27,11 @@ final class SupplierConfigTest extends TestCase {
         self::assertTrue($override->updatePrice);
         self::assertFalse($override->updateStock);
         self::assertSame(0.70, $override->minimumFeedRetention);
+    }
+
+    public function testRegistryNormalizesSupplierCodes(): void {
+        $config = SupplierConfigRegistry::resolve(' Mustek South Africa ');
+        self::assertSame('mustek-south-africa', $config->code);
     }
 
     public function testInvalidSafetyValuesAreRejected(): void {
