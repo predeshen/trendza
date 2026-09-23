@@ -28,10 +28,17 @@ final class SupplierCliCommand {
             \WP_CLI::error('Invalid format. Use csv or xml.');
         }
 
-        $margin = (float) ($assocArgs['margin'] ?? 25);
+        $config = SupplierConfigRegistry::resolve($code);
+        $margin = isset($assocArgs['margin']) ? (float) $assocArgs['margin'] : $config->marginPercent;
         if ($margin < 0 || $margin >= 90) {
             \WP_CLI::error('Margin must be at least 0 and below 90 percent.');
         }
+
+        $maxProducts = isset($assocArgs['max-products']) ? (int) $assocArgs['max-products'] : $config->maxProducts;
+        if ($maxProducts < 1) {
+            \WP_CLI::error('Maximum products must be at least 1.');
+        }
+        $config = $config->withOverrides($margin, $maxProducts);
 
         $parser = $format === 'xml' ? new XmlFeedParser() : new CsvFeedParser();
         $supplier = new RemoteFeedSupplier($code, $url, $parser);
@@ -46,13 +53,13 @@ final class SupplierCliCommand {
             foreach ($supplier->fetch() as $item) {
                 $seen++;
                 try {
+                    if ($seen > $config->maxProducts) {
+                        throw new \RuntimeException(sprintf('Feed exceeds the %d-product safety limit.', $config->maxProducts));
+                    }
                     if (!$item instanceof SupplierProduct) {
                         throw new \InvalidArgumentException('Supplier returned an invalid product.');
                     }
 
-                    if ($seen > $config->maxProducts) {
-                        throw new \\RuntimeException(sprintf('Feed exceeds the %d-product safety limit.', $config->maxProducts));
-                    }
                     $data = $normalizer->normalise($item, $config->marginPercent);
                     if ($data['name'] === '' || $data['dedupe_key'] === '') {
                         $skipped++;
@@ -62,7 +69,6 @@ final class SupplierCliCommand {
                         ];
                         continue;
                     }
-
                     $valid++;
                 } catch (\Throwable $e) {
                     $errors[] = [
@@ -74,12 +80,8 @@ final class SupplierCliCommand {
 
             \WP_CLI::success(sprintf(
                 'Dry run complete: %d seen, %d valid, %d skipped, %d errors. No products were written.',
-                $seen,
-                $valid,
-                $skipped,
-                count($errors)
+                $seen, $valid, $skipped, count($errors)
             ));
-
             foreach ($errors as $error) {
                 \WP_CLI::warning(($error['external_id'] !== '' ? $error['external_id'] . ': ' : '') . $error['message']);
             }
@@ -87,17 +89,19 @@ final class SupplierCliCommand {
         }
 
         $service = new SupplierSyncService($normalizer, new WooCommerceProductImporter());
-        $result = $service->sync($supplier, $config->marginPercent, $config->updatePrice, $config->updateStock, $config, isset($assocArgs['force-shrink']));
+        $result = $service->sync(
+            $supplier,
+            $config->marginPercent,
+            $config->updatePrice,
+            $config->updateStock,
+            $config,
+            isset($assocArgs['force-shrink'])
+        );
 
         \WP_CLI::success(sprintf(
             'Sync complete: %d seen, %d created, %d updated, %d skipped, %d errors.',
-            $result->seen,
-            $result->created,
-            $result->updated,
-            $result->skipped,
-            count($result->errors)
+            $result->seen, $result->created, $result->updated, $result->skipped, count($result->errors)
         ));
-
         foreach ($result->errors as $error) {
             \WP_CLI::warning($error['external_id'] . ': ' . $error['message']);
         }
