@@ -6,21 +6,35 @@ final class SupplierSyncService {
 
     public function __construct(private CatalogueSynchronizer $normalizer, private WooCommerceProductImporter $importer) {}
 
-    public function sync(SupplierInterface $supplier, float $marginPercent = 25.0, bool $updatePrice = true, bool $updateStock = true): SyncResult {
-        if ($marginPercent < 0 || $marginPercent >= 90) {
-            throw new \InvalidArgumentException('Margin must be at least 0 and below 90 percent.');
-        }
+    public function sync(
+        SupplierInterface $supplier,
+        ?float $marginPercent = null,
+        ?bool $updatePrice = null,
+        ?bool $updateStock = null,
+        ?SupplierConfig $config = null,
+        bool $forceShrink = false
+    ): SyncResult {
+        $supplierCode = $supplier->getCode();
+        $config ??= SupplierConfigRegistry::resolve($supplierCode);
+        $effective = $config->withOverrides($marginPercent, null, $updatePrice, $updateStock);
 
         $items = [];
         foreach ($supplier->fetch() as $item) {
             $items[] = $item;
+            if (count($items) > $effective->maxProducts) {
+                throw new \RuntimeException(sprintf(
+                    'Supplier feed exceeds the %d-product safety limit for supplier "%s".',
+                    $effective->maxProducts,
+                    $supplierCode
+                ));
+            }
         }
 
-        if (!$items) {
+        if (!$items && !$effective->allowEmptyFeed) {
             throw new \RuntimeException('Supplier feed returned no products; import aborted to protect the existing catalogue.');
         }
 
-        $preflightErrors = $this->preflight($items, $marginPercent);
+        $preflightErrors = $this->preflight($items, $effective->marginPercent);
         if ($preflightErrors) {
             throw new \RuntimeException(
                 'Supplier feed preflight failed: ' . implode(' ', array_slice($preflightErrors, 0, 10))
@@ -37,7 +51,11 @@ final class SupplierSyncService {
                 $data = $this->normalizer->normalise($item, $effective->marginPercent);
                 $existing = $this->findExisting($supplierCode, $data['external_id'], $data['sku']);
                 $this->importer->import($data, $supplierCode, $effective->updatePrice, $effective->updateStock);
-                if ($existing) $result->updated++; else $result->created++;
+                if ($existing) {
+                    $result->updated++;
+                } else {
+                    $result->created++;
+                }
             } catch (\Throwable $e) {
                 $result->error($item instanceof SupplierProduct ? $item->externalId : '', $e->getMessage());
             }
@@ -57,7 +75,6 @@ final class SupplierSyncService {
 
         foreach ($items as $index => $item) {
             $row = $index + 1;
-
             if (!$item instanceof SupplierProduct) {
                 $errors[] = sprintf('Row %d is not a SupplierProduct.', $row);
                 continue;
@@ -80,12 +97,7 @@ final class SupplierSyncService {
             $parentKey = (string) $data['dedupe_key'];
             if ($parentKey !== '') {
                 if (isset($parentKeys[$parentKey])) {
-                    $errors[] = sprintf(
-                        'Duplicate product identifier "%s" at rows %d and %d.',
-                        $parentKey,
-                        $parentKeys[$parentKey] + 1,
-                        $row
-                    );
+                    $errors[] = sprintf('Duplicate product identifier "%s" at rows %d and %d.', $parentKey, $parentKeys[$parentKey] + 1, $row);
                 } else {
                     $parentKeys[$parentKey] = $index;
                 }
@@ -94,14 +106,8 @@ final class SupplierSyncService {
             foreach ($data['variants'] as $variant) {
                 $sku = (string) ($variant['sku'] ?? '');
                 if ($sku === '') continue;
-
                 if (isset($variantSkus[$sku])) {
-                    $errors[] = sprintf(
-                        'Duplicate variant SKU "%s" at rows %d and %d.',
-                        $sku,
-                        $variantSkus[$sku] + 1,
-                        $row
-                    );
+                    $errors[] = sprintf('Duplicate variant SKU "%s" at rows %d and %d.', $sku, $variantSkus[$sku] + 1, $row);
                 } else {
                     $variantSkus[$sku] = $index;
                 }
@@ -114,7 +120,6 @@ final class SupplierSyncService {
     private function assertFeedChangeIsSafe(string $supplierCode, array $items, SupplierConfig $config, bool $forceShrink): void {
         $key = self::SNAPSHOT_PREFIX . sanitize_key($supplierCode);
         $previous = get_option($key, null);
-
         if (!is_array($previous) || empty($previous['count'])) return;
 
         $previousCount = max(1, (int) $previous['count']);
@@ -124,34 +129,24 @@ final class SupplierSyncService {
         if (!$forceShrink && $retention < $config->minimumFeedRetention) {
             throw new \RuntimeException(sprintf(
                 'Supplier feed contains %d products versus %d in the previous successful feed (%.1f%% retained). Import aborted because the catalogue shrank below the %.0f%% safety threshold.',
-                $currentCount,
-                $previousCount,
-                $retention * 100,
-                $config->minimumFeedRetention * 100
+                $currentCount, $previousCount, $retention * 100, $config->minimumFeedRetention * 100
             ));
         }
     }
 
     private function saveSnapshot(string $supplierCode, array $items): void {
         $keys = [];
-
         foreach ($items as $item) {
             if (!$item instanceof SupplierProduct) continue;
             $key = (new ProductDeduplicator())->key($item);
             if ($key !== '') $keys[] = $key;
         }
-
         sort($keys, SORT_STRING);
-
-        update_option(
-            self::SNAPSHOT_PREFIX . sanitize_key($supplierCode),
-            [
-                'count' => count($items),
-                'fingerprint' => hash('sha256', implode("\n", $keys)),
-                'updated_at' => current_time('mysql', true),
-            ],
-            false
-        );
+        update_option(self::SNAPSHOT_PREFIX . sanitize_key($supplierCode), [
+            'count' => count($items),
+            'fingerprint' => hash('sha256', implode("\n", $keys)),
+            'updated_at' => current_time('mysql', true),
+        ], false);
     }
 
     private function findExisting(string $supplierCode, string $externalId, string $sku): int {
@@ -159,7 +154,6 @@ final class SupplierSyncService {
             $id = (int) wc_get_product_id_by_sku($sku);
             if ($id) return $id;
         }
-
         if ($externalId === '') return 0;
 
         $ids = get_posts([
@@ -172,7 +166,6 @@ final class SupplierSyncService {
                 ['key' => '_trendza_supplier_code', 'value' => $supplierCode],
             ],
         ]);
-
         return (int) ($ids[0] ?? 0);
     }
 }
