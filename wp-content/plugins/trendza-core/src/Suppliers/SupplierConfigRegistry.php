@@ -7,7 +7,7 @@ final class SupplierConfigRegistry {
             ? sanitize_key($code)
             : strtolower(trim(preg_replace('/[^a-z0-9_-]+/i', '-', $code), '-'));
 
-        $config = new SupplierConfig($normalized);
+        $config = SupplierConfigStore::get($normalized) ?? new SupplierConfig($normalized);
 
         if (function_exists('apply_filters')) {
             $filtered = apply_filters('trendza_supplier_config', $config, $code);
