@@ -93,8 +93,8 @@ function trendza_single_product_trust_row(): void {
     $stock_class = $product->is_in_stock() ? 'is-available' : 'is-unavailable';
     echo '<div class="trendza-trust-row" aria-label="Product availability and checkout information">';
     echo '<span class="trust-item ' . esc_attr($stock_class) . '"><i aria-hidden="true"></i>' . esc_html($availability) . '</span>';
-    echo '<span class="trust-item">Secure checkout</span>';
-    echo '<span class="trust-item">Order support</span>';
+    echo '<span class="trust-item">WooCommerce checkout</span>';
+    echo '<span class="trust-item">Product information</span>';
     echo '</div>';
 }
 add_action('woocommerce_single_product_summary','trendza_single_product_trust_row',31);
