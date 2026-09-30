@@ -2,6 +2,7 @@
 use PHPUnit\Framework\TestCase;
 use Trendza\Suppliers\SupplierConfig;
 use Trendza\Suppliers\SupplierConfigRegistry;
+use Trendza\Suppliers\SupplierConfigStore;
 
 final class SupplierConfigTest extends TestCase {
     public function testDefaultsAreSafeForCuratedCatalogue(): void {
@@ -32,6 +33,11 @@ final class SupplierConfigTest extends TestCase {
     public function testRegistryNormalizesSupplierCodes(): void {
         $config = SupplierConfigRegistry::resolve(' Mustek South Africa ');
         self::assertSame('mustek-south-africa', $config->code);
+    }
+
+    public function testStoreReturnsNullWhenWordPressStorageIsUnavailable(): void {
+        self::assertNull(SupplierConfigStore::get('supplier-a'));
+        self::assertFalse(SupplierConfigStore::save(new SupplierConfig('supplier-a')));
     }
 
     public function testInvalidSafetyValuesAreRejected(): void {
