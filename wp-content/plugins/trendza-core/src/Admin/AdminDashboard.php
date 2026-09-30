@@ -3,9 +3,10 @@ namespace Trendza\Admin;
 
 use Trendza\Analytics\EventStore;
 use Trendza\Products\ProductMeta;
+use Trendza\Suppliers\SupplierConfigAdmin;
 
 final class AdminDashboard {
-    public static function register(): void { add_action('admin_menu', [self::class, 'menu']); }
+    public static function register(): void { add_action('admin_menu', [self::class, 'menu']); SupplierConfigAdmin::register(); }
 
     public static function menu(): void {
         add_menu_page('Trendza Intelligence', 'Trendza', 'manage_woocommerce', 'trendza', [self::class, 'render'], 'dashicons-chart-area', 56);
