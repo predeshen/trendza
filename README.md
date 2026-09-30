@@ -10,7 +10,7 @@ Trendza is not a generic dropshipping catalogue. It discovers, scores, curates a
 
 This repository contains the WordPress/WooCommerce application code and supporting development infrastructure.
 
-### Planned architecture
+### Architecture
 
 - `wp-content/themes/trendza` — custom lightweight WooCommerce theme
 - `wp-content/plugins/trendza-core` — Trendza domain logic, trend scoring, APIs and integrations
