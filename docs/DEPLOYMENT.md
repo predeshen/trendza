@@ -13,8 +13,9 @@ Trendza is intended for a clean WordPress + WooCommerce installation. WordPress 
 7. Activate the Trendza theme.
 8. Configure menus, logo/site identity and WooCommerce payment/shipping settings.
 9. Save Settings > Permalinks once to refresh rewrite rules.
-10. Add the initial curated product catalogue.
-11. Verify product discovery, checkout, analytics and structured data before opening the store publicly.
+10. Open Trendza > Supplier Policies and configure each supplier's margin and safety limits.
+11. Add the initial curated product catalogue or run a supplier dry-run first.
+12. Verify product discovery, checkout, analytics and structured data before opening the store publicly.
 
 ## Server layout
 
@@ -45,7 +46,7 @@ wp rewrite flush
 
 ## Supplier rollout
 
-Do not connect supplier feeds until the storefront and checkout have been tested. Configure credentials through protected server configuration/secrets, never Git. Start with one supplier and a small test catalogue, validate prices/stock/categories/images, then enable scheduled synchronization.
+Do not connect supplier feeds until the storefront and checkout have been tested. Configure credentials through protected server configuration/secrets, never Git. Start with one supplier and a small test catalogue, validate prices/stock/categories/images, review the supplier sync audit in Trendza Intelligence, then enable scheduled synchronization.
 
 ## Cron
 
