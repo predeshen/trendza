@@ -17,11 +17,13 @@ final class SupplierSyncService {
         $supplierCode = $supplier->getCode();
         $config ??= SupplierConfigRegistry::resolve($supplierCode);
         $effective = $config->withOverrides($marginPercent, null, $updatePrice, $updateStock);
+        SupplierSyncAudit::record($supplierCode, 'started', ['max_products' => $effective->maxProducts, 'margin_percent' => $effective->marginPercent]);
 
         $items = [];
         foreach ($supplier->fetch() as $item) {
             $items[] = $item;
             if (count($items) > $effective->maxProducts) {
+                SupplierSyncAudit::record($supplierCode, 'failed', ['reason' => 'max_products', 'seen' => count($items), 'limit' => $effective->maxProducts]);
                 throw new \RuntimeException(sprintf(
                     'Supplier feed exceeds the %d-product safety limit for supplier "%s".',
                     $effective->maxProducts,
@@ -31,18 +33,25 @@ final class SupplierSyncService {
         }
 
         if (!$items && !$effective->allowEmptyFeed) {
+            SupplierSyncAudit::record($supplierCode, 'failed', ['reason' => 'empty_feed']);
             throw new \RuntimeException('Supplier feed returned no products; import aborted to protect the existing catalogue.');
         }
 
         $preflightErrors = $this->preflight($items, $effective->marginPercent);
         if ($preflightErrors) {
+            SupplierSyncAudit::record($supplierCode, 'failed', ['reason' => 'preflight', 'errors' => array_slice($preflightErrors, 0, 10)]);
             throw new \RuntimeException(
                 'Supplier feed preflight failed: ' . implode(' ', array_slice($preflightErrors, 0, 10))
                 . (count($preflightErrors) > 10 ? ' Additional errors were found.' : '')
             );
         }
 
-        $this->assertFeedChangeIsSafe($supplierCode, $items, $effective, $forceShrink);
+        try {
+            $this->assertFeedChangeIsSafe($supplierCode, $items, $effective, $forceShrink);
+        } catch (\Throwable $e) {
+            SupplierSyncAudit::record($supplierCode, 'failed', ['reason' => 'retention', 'message' => $e->getMessage()]);
+            throw $e;
+        }
 
         $result = new SyncResult();
         foreach ($items as $item) {
@@ -63,6 +72,9 @@ final class SupplierSyncService {
 
         if (!$result->errors) {
             $this->saveSnapshot($supplierCode, $items);
+            SupplierSyncAudit::record($supplierCode, 'completed', ['seen' => $result->seen, 'created' => $result->created, 'updated' => $result->updated]);
+        } else {
+            SupplierSyncAudit::record($supplierCode, 'completed_with_errors', ['seen' => $result->seen, 'created' => $result->created, 'updated' => $result->updated, 'errors' => count($result->errors)]);
         }
 
         return $result;
