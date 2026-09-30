@@ -4,6 +4,7 @@ namespace Trendza\Admin;
 use Trendza\Analytics\EventStore;
 use Trendza\Products\ProductMeta;
 use Trendza\Suppliers\SupplierConfigAdmin;
+use Trendza\Suppliers\SupplierSyncAudit;
 
 final class AdminDashboard {
     public static function register(): void { add_action('admin_menu', [self::class, 'menu']); SupplierConfigAdmin::register(); }
@@ -19,6 +20,7 @@ final class AdminDashboard {
         $synced = self::syncCount();
         $syncErrors = self::syncErrorCount();
         $topProducts = self::topProducts(8);
+        $latestSyncs = SupplierSyncAudit::all();
         ?>
         <div class="wrap">
             <h1>Trendza Intelligence</h1>
@@ -74,6 +76,25 @@ final class AdminDashboard {
                     <tr><td>Missing prices</td><td><?php echo esc_html(number_format_i18n($counts['missing_price'])); ?></td></tr>
                     <tr><td>Out of stock</td><td><?php echo esc_html(number_format_i18n($counts['outofstock'])); ?></td></tr>
                     <tr><td>Products with sync errors</td><td><?php echo esc_html(number_format_i18n($syncErrors)); ?></td></tr>
+                </tbody>
+            </table>
+
+
+
+            <h2>Recent supplier syncs</h2>
+            <table class="widefat striped" style="max-width:1200px">
+                <thead><tr><th>Supplier</th><th>Status</th><th>Time</th><th>Details</th></tr></thead>
+                <tbody>
+                <?php if (!$latestSyncs) : ?>
+                    <tr><td colspan="4">No supplier syncs recorded yet.</td></tr>
+                <?php else : foreach (array_slice($latestSyncs, 0, 10) as $sync) : ?>
+                    <tr>
+                        <td><?php echo esc_html($sync['supplier'] ?? ''); ?></td>
+                        <td><?php echo esc_html(ucwords(str_replace('_', ' ', (string) ($sync['status'] ?? '')))); ?></td>
+                        <td><?php echo esc_html($sync['time'] ?? ''); ?></td>
+                        <td><?php echo esc_html(wp_json_encode($sync['data'] ?? [])); ?></td>
+                    </tr>
+                <?php endforeach; endif; ?>
                 </tbody>
             </table>
 
