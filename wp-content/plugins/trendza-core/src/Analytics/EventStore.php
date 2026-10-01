@@ -3,10 +3,19 @@ namespace Trendza\Analytics;
 
 final class EventStore {
     public const TABLE_SUFFIX = 'trendza_events';
+    private const SCHEMA_VERSION = 1;
+    private const SCHEMA_OPTION = 'trendza_events_schema_version';
     public static function table(): string { global $wpdb; return $wpdb->prefix . self::TABLE_SUFFIX; }
     public static function install(): void {
+        if (function_exists('get_option') && (int) get_option(self::SCHEMA_OPTION, 0) >= self::SCHEMA_VERSION) {
+            return;
+        }
+
         global $wpdb; $table=self::table(); $charset=$wpdb->get_charset_collate(); require_once ABSPATH.'wp-admin/includes/upgrade.php';
         dbDelta("CREATE TABLE {$table} (id bigint(20) unsigned NOT NULL AUTO_INCREMENT, product_id bigint(20) unsigned NOT NULL DEFAULT 0, event_type varchar(32) NOT NULL, occurred_at datetime NOT NULL, session_hash char(64) NOT NULL DEFAULT '', metadata longtext NULL, PRIMARY KEY (id), KEY product_event_time (product_id,event_type,occurred_at), KEY event_time (event_type,occurred_at), KEY session_time (session_hash,occurred_at)) {$charset};");
+        if (function_exists('update_option')) {
+            update_option(self::SCHEMA_OPTION, self::SCHEMA_VERSION, false);
+        }
     }
     public static function record(int $productId,string $eventType,string $sessionHash='',array $metadata=[]): bool {
         global $wpdb; $allowed=['view','search','add_to_cart','begin_checkout','purchase']; if(!in_array($eventType,$allowed,true)) return false;
