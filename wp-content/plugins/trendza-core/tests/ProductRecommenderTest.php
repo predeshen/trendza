@@ -19,6 +19,12 @@ final class ProductRecommenderTest extends TestCase {
         $this->assertStringContainsString('similar category',$result[0]['why_recommended']);
     }
 
+    public function testEqualScoresUseStableTieBreakers(): void {
+        $reference=$this->product(1);
+        $result=ProductRecommender::rank($reference,[$this->product(4),$this->product(2)],2);
+        $this->assertSame([2,4],array_column($result,'id'));
+    }
+
     public function testOutOfStockCandidatesAreExcluded(): void {
         $reference=$this->product(1);
         $result=ProductRecommender::rank($reference,[$this->product(2,['in_stock'=>false])],6);
