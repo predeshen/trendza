@@ -80,6 +80,10 @@ final class SupplierSyncService {
         return $result;
     }
 
+    public function validateFeed(array $items, float $marginPercent): array {
+        return $this->preflight($items, $marginPercent);
+    }
+
     private function preflight(array $items, float $marginPercent): array {
         $errors = [];
         $parentKeys = [];
