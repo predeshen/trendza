@@ -24,7 +24,17 @@ final class WooCommerceProductImporter {
 
         $hasVariants = !empty($data['variants']) && is_array($data['variants']);
         if ($id) {
-            $product = $hasVariants ? new \WC_Product_Variable($id) : wc_get_product($id);
+            if (!$hasVariants) {
+                $existingProduct = wc_get_product($id);
+                if ($existingProduct instanceof \WC_Product_Variable) {
+                    $this->removeManagedVariations($id);
+                    $product = new \WC_Product_Simple($id);
+                } else {
+                    $product = $existingProduct;
+                }
+            } else {
+                $product = new \WC_Product_Variable($id);
+            }
         } else {
             $product = $hasVariants ? new \WC_Product_Variable() : new \WC_Product_Simple();
         }
@@ -200,6 +210,24 @@ final class WooCommerceProductImporter {
             $options[$name] = array_values(array_unique($values));
         }
         return $options;
+    }
+
+    private function removeManagedVariations(int $productId): void {
+        $managedIds = array_values(array_filter(array_map(
+            'intval',
+            (array) get_post_meta($productId, ProductMeta::SUPPLIER_VARIATIONS, true)
+        )));
+
+        foreach ($managedIds as $variationId) {
+            if ($variationId <= 0 || (int) wp_get_post_parent_id($variationId) !== $productId) continue;
+            $oldImageId = (int) get_post_thumbnail_id($variationId);
+            wp_delete_post($variationId, true);
+            if ($oldImageId > 0 && (int) get_post_field('post_parent', $oldImageId) === $variationId) {
+                wp_delete_attachment($oldImageId, true);
+            }
+        }
+
+        delete_post_meta($productId, ProductMeta::SUPPLIER_VARIATIONS);
     }
 
     private function syncVariants(int $productId, array $variants, bool $updatePrice, bool $updateStock): void {
