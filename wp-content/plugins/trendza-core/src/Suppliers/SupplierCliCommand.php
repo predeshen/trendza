@@ -64,7 +64,7 @@ final class SupplierCliCommand {
                 $errors[] = ['external_id' => '', 'message' => $message];
             }
 
-            $valid = max(0, count($items) - count($validationErrors));
+            $valid = $validationErrors ? 0 : count($items);
             if (!$items && !$config->allowEmptyFeed) {
                 $errors[] = ['external_id' => '', 'message' => 'Supplier feed returned no products.'];
             }
