@@ -14,6 +14,11 @@ use Trendza\Trend\TrendService;
 
 final class Plugin {
     public static function boot(): void {
+        // Keep installation resilient when WooCommerce is activated after Trendza.
+        // EventStore::install() is idempotent through WordPress dbDelta(), so this
+        // also repairs a missing analytics table without requiring reactivation.
+        \Trendza\Analytics\EventStore::install();
+
         ProductFields::register();
         RestController::register();
         AnalyticsController::register();
