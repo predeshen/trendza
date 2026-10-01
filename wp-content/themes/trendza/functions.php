@@ -131,3 +131,39 @@ function trendza_discovery_title(): string { return match(sanitize_key((string)g
 function trendza_discovery_description(): string { return match(sanitize_key((string)get_query_var('trendza_discovery'))){ 'trending'=>'Explore products showing the strongest current Trendza signals across activity, demand and product quality.','rising'=>'Find products gaining momentum before they become the next big trend.','best-value'=>'Shop products selected for a strong balance of price, quality and usefulness.','quality-picks'=>'Browse products with strong catalogue quality signals, useful information and dependable availability.',default=>'Discover curated products on Trendza.',}; }
 function trendza_discovery_query(): WP_Query { $key=sanitize_key((string)get_query_var('trendza_discovery'));$args=['post_type'=>'product','post_status'=>'publish','posts_per_page'=>24,'paged'=>max(1,(int)get_query_var('paged')),'no_found_rows'=>false,'ignore_sticky_posts'=>true];$stock_meta=['key'=>'_stock_status','value'=>'instock'];if($key==='trending'||$key==='rising'){$args['meta_key']='_trendza_trend_score';$args['orderby']='meta_value_num';$args['order']='DESC';$args['meta_query']=[['key'=>'_trendza_trend_status','value'=>$key==='trending'?'trending':'rising'],$stock_meta];}elseif($key==='best-value'){$args['meta_key']='_trendza_value_score';$args['orderby']='meta_value_num';$args['order']='DESC';$args['meta_query']=[['key'=>'_trendza_value_score','compare'=>'EXISTS'],$stock_meta];}elseif($key==='quality-picks'){$args['meta_key']='_trendza_quality_score';$args['orderby']='meta_value_num';$args['order']='DESC';$args['meta_query']=[['key'=>'_trendza_quality_score','compare'=>'EXISTS'],$stock_meta];}return new WP_Query($args); }
 function trendza_fallback_menu(): void { echo '<ul class="main-menu"><li><a href="'.esc_url(home_url('/')).'">Home</a></li>';if(class_exists('WooCommerce'))echo '<li><a href="'.esc_url(wc_get_page_permalink('shop')).'">Shop</a></li><li><a href="'.esc_url(home_url('/trending/')).'">Trending</a></li><li><a href="'.esc_url(home_url('/rising/')).'">Rising</a></li><li><a href="'.esc_url(wc_get_cart_url()).'">Cart</a></li>';echo '</ul>'; }
+
+function trendza_discovery_seo(): void {
+    if (is_admin() || !get_query_var('trendza_discovery') || (defined('WPSEO_VERSION') || class_exists('RankMath') || defined('RANK_MATH_VERSION'))) {
+        return;
+    }
+
+    $key = sanitize_key((string) get_query_var('trendza_discovery'));
+    if (!in_array($key, ['trending', 'rising', 'best-value', 'quality-picks'], true)) {
+        return;
+    }
+
+    $description = trendza_discovery_description();
+    $url = home_url('/' . $key . '/');
+    $paged = max(1, (int) get_query_var('paged'));
+    if ($paged > 1) {
+        $url = trailingslashit(home_url('/' . $key . '/page/' . $paged . '/'));
+    }
+
+    echo '<meta name="description" content="' . esc_attr($description) . '">' . "\n";
+    echo '<link rel="canonical" href="' . esc_url($url) . '">' . "\n";
+}
+add_action('wp_head', 'trendza_discovery_seo', 1);
+
+function trendza_discovery_document_title(string $title): string {
+    if (is_admin()) {
+        return $title;
+    }
+
+    $key = sanitize_key((string) get_query_var('trendza_discovery'));
+    if (!$key || !function_exists('trendza_discovery_title')) {
+        return $title;
+    }
+
+    return trendza_discovery_title() . ' | ' . get_bloginfo('name');
+}
+add_filter('pre_get_document_title', 'trendza_discovery_document_title');
