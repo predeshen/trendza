@@ -24,7 +24,18 @@ final class ProductRecommender {
             $ranked[] = $candidate;
         }
 
-        usort($ranked, static fn(array $a, array $b): int => ($b['recommendation_score'] <=> $a['recommendation_score']));
+        usort($ranked, static function (array $a, array $b): int {
+            $score = $b['recommendation_score'] <=> $a['recommendation_score'];
+            if ($score !== 0) return $score;
+
+            $trend = (float) ($b['trend_score'] ?? 0) <=> (float) ($a['trend_score'] ?? 0);
+            if ($trend !== 0) return $trend;
+
+            $quality = (float) ($b['quality_score'] ?? 0) <=> (float) ($a['quality_score'] ?? 0);
+            if ($quality !== 0) return $quality;
+
+            return (int) ($a['id'] ?? 0) <=> (int) ($b['id'] ?? 0);
+        });
         return array_slice($ranked, 0, max(1, $limit));
     }
 
