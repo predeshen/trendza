@@ -45,42 +45,33 @@ final class SupplierCliCommand {
         $normalizer = new CatalogueSynchronizer(new PricingEngine(), new ProductDeduplicator());
 
         if (isset($assocArgs['dry-run'])) {
-            $seen = 0;
-            $valid = 0;
-            $skipped = 0;
+            $items = [];
             $errors = [];
-
             foreach ($supplier->fetch() as $item) {
-                $seen++;
-                try {
-                    if ($seen > $config->maxProducts) {
-                        throw new \RuntimeException(sprintf('Feed exceeds the %d-product safety limit.', $config->maxProducts));
-                    }
-                    if (!$item instanceof SupplierProduct) {
-                        throw new \InvalidArgumentException('Supplier returned an invalid product.');
-                    }
-
-                    $data = $normalizer->normalise($item, $config->marginPercent);
-                    if ($data['name'] === '' || $data['dedupe_key'] === '') {
-                        $skipped++;
-                        $errors[] = [
-                            'external_id' => $item->externalId,
-                            'message' => 'Missing product name or external_id/SKU.',
-                        ];
-                        continue;
-                    }
-                    $valid++;
-                } catch (\Throwable $e) {
+                $items[] = $item;
+                if (count($items) > $config->maxProducts) {
                     $errors[] = [
                         'external_id' => $item instanceof SupplierProduct ? $item->externalId : '',
-                        'message' => $e->getMessage(),
+                        'message' => sprintf('Feed exceeds the %d-product safety limit.', $config->maxProducts),
                     ];
+                    break;
                 }
             }
 
+            $service = new SupplierSyncService($normalizer, new WooCommerceProductImporter());
+            $validationErrors = $service->validateFeed($items, $config->marginPercent);
+            foreach ($validationErrors as $message) {
+                $errors[] = ['external_id' => '', 'message' => $message];
+            }
+
+            $valid = max(0, count($items) - count($validationErrors));
+            if (!$items && !$config->allowEmptyFeed) {
+                $errors[] = ['external_id' => '', 'message' => 'Supplier feed returned no products.'];
+            }
+
             \WP_CLI::success(sprintf(
-                'Dry run complete: %d seen, %d valid, %d skipped, %d errors. No products were written.',
-                $seen, $valid, $skipped, count($errors)
+                'Dry run complete: %d seen, %d valid, %d validation errors. No products were written.',
+                count($items), $valid, count($errors)
             ));
             foreach ($errors as $error) {
                 \WP_CLI::warning(($error['external_id'] !== '' ? $error['external_id'] . ': ' : '') . $error['message']);
