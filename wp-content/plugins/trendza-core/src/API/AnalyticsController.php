@@ -46,11 +46,14 @@ final class AnalyticsController {
             $metadata['query'] = sanitize_text_field((string) $request->get_param('query'));
         }
         if (in_array($event, ['view', 'search'], true)) {
-            EventStore::recordUnique($productId, $event, $clientKey, $metadata);
+            $recorded = EventStore::recordUnique($productId, $event, $clientKey, $metadata);
         } else {
-            EventStore::record($productId, $event, $clientKey, $metadata);
+            $recorded = EventStore::record($productId, $event, $clientKey, $metadata);
         }
-        return rest_ensure_response(['recorded' => true]);
+
+        // Report the persistence result instead of claiming success when the
+        // event was deduplicated or the database write failed.
+        return rest_ensure_response(['recorded' => $recorded]);
     }
 
     private static function clientKey(\WP_REST_Request $request): string {
