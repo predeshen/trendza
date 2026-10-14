@@ -49,7 +49,7 @@ Every normal supplier sync performs a preflight before changing WooCommerce data
 - Missing product names or identifiers reject the feed.
 - A successful feed establishes a supplier-specific snapshot.
 - Later feeds retaining less than 50% of the previous successful product count are rejected as a safety measure against truncated or broken supplier feeds.
-- The snapshot is only advanced when the complete import finishes without row-level errors.
+- The snapshot is only advanced when the complete import finishes without row-level errors. A live sync that encounters row-level import errors reports each failure and exits WP-CLI with a non-zero status, even if other products were successfully imported. Review the audit log before retrying so a partial run is not mistaken for a clean success.
 
 The default 50% threshold is intentionally conservative. Supplier-specific thresholds can be stricter or more permissive when the supplier's normal catalogue behaviour is understood. A supplier that legitimately removes more than half its catalogue should still be reviewed before running that feed against production.
 
