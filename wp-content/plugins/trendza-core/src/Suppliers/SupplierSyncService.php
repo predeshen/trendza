@@ -105,7 +105,7 @@ final class SupplierSyncService {
             if (!$errors) {
                 try {
                     $this->assertFeedChangeIsSafe($config->code, $items, $config, $forceShrink);
-                } catch (\\Throwable $e) {
+                } catch (\Throwable $e) {
                     $errors[] = $e->getMessage();
                 }
             }
