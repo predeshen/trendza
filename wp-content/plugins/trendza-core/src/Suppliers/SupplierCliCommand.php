@@ -46,35 +46,30 @@ final class SupplierCliCommand {
 
         if (isset($assocArgs['dry-run'])) {
             $items = [];
-            $errors = [];
             foreach ($supplier->fetch() as $item) {
                 $items[] = $item;
                 if (count($items) > $config->maxProducts) {
-                    $errors[] = [
-                        'external_id' => $item instanceof SupplierProduct ? $item->externalId : '',
-                        'message' => sprintf('Feed exceeds the %d-product safety limit.', $config->maxProducts),
-                    ];
+                    // Keep one extra row so validation can explain that the
+                    // configured limit was exceeded without loading the full feed.
                     break;
                 }
             }
 
             $service = new SupplierSyncService($normalizer, new WooCommerceProductImporter());
-            $validationErrors = $service->validateFeed($items, $config->marginPercent);
-            foreach ($validationErrors as $message) {
-                $errors[] = ['external_id' => '', 'message' => $message];
-            }
+            $errors = $service->validateFeed(
+                $items,
+                $config->marginPercent,
+                $config,
+                isset($assocArgs['force-shrink'])
+            );
 
-            $valid = $validationErrors ? 0 : count($items);
-            if (!$items && !$config->allowEmptyFeed) {
-                $errors[] = ['external_id' => '', 'message' => 'Supplier feed returned no products.'];
-            }
-
-            \WP_CLI::success(sprintf(
+            $valid = $errors ? 0 : count($items);
+            \\WP_CLI::success(sprintf(
                 'Dry run complete: %d seen, %d valid, %d validation errors. No products were written.',
                 count($items), $valid, count($errors)
             ));
-            foreach ($errors as $error) {
-                \WP_CLI::warning(($error['external_id'] !== '' ? $error['external_id'] . ': ' : '') . $error['message']);
+            foreach ($errors as $message) {
+                \\WP_CLI::warning($message);
             }
             return;
         }
