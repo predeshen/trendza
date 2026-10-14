@@ -64,17 +64,17 @@ final class SupplierCliCommand {
             );
 
             $valid = $errors ? 0 : count($items);
-            \\WP_CLI::log(sprintf(
+            \WP_CLI::log(sprintf(
                 'Dry run complete: %d seen, %d valid, %d validation errors. No products were written.',
                 count($items), $valid, count($errors)
             ));
             foreach ($errors as $message) {
-                \\WP_CLI::warning($message);
+                \WP_CLI::warning($message);
             }
             if ($errors) {
                 \\WP_CLI::error('Dry run failed validation. Review the warnings before running a live sync.');
             }
-            \\WP_CLI::success('Dry run passed all configured feed safety checks.');
+            \WP_CLI::success('Dry run passed all configured feed safety checks.');
             return;
         }
 
