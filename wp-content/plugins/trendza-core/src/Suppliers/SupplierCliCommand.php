@@ -100,6 +100,6 @@ final class SupplierCliCommand {
             \WP_CLI::error('Supplier sync completed with product errors. Review the warnings and supplier audit log before retrying.');
         }
 
-        \WP_CLI::success('Supplier sync completed without product errors.');        }
+        \WP_CLI::success('Supplier sync completed without product errors.');
     }
 }
