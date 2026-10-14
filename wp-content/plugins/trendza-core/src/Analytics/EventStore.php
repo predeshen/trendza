@@ -13,7 +13,12 @@ final class EventStore {
 
         global $wpdb; $table=self::table(); $charset=$wpdb->get_charset_collate(); require_once ABSPATH.'wp-admin/includes/upgrade.php';
         dbDelta("CREATE TABLE {$table} (id bigint(20) unsigned NOT NULL AUTO_INCREMENT, product_id bigint(20) unsigned NOT NULL DEFAULT 0, event_type varchar(32) NOT NULL, occurred_at datetime NOT NULL, session_hash char(64) NOT NULL DEFAULT '', metadata longtext NULL, PRIMARY KEY (id), KEY product_event_time (product_id,event_type,occurred_at), KEY event_time (event_type,occurred_at), KEY session_time (session_hash,occurred_at)) {$charset};");
-        if (function_exists('update_option')) {
+
+        // Do not mark the schema as installed unless MySQL confirms the table
+        // exists. This leaves the next request able to retry after a transient
+        // database/permission failure instead of permanently skipping setup.
+        $createdTable = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
+        if ($createdTable === $table && function_exists('update_option')) {
             update_option(self::SCHEMA_OPTION, self::SCHEMA_VERSION, false);
         }
     }
