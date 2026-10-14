@@ -80,8 +80,38 @@ final class SupplierSyncService {
         return $result;
     }
 
-    public function validateFeed(array $items, float $marginPercent): array {
-        return $this->preflight($items, $marginPercent);
+    /**
+     * Validate a feed without writing products, including the same catalogue
+     * size, empty-feed and shrink protections used by a real synchronization.
+     *
+     * @return string[] Validation failures that would block synchronization.
+     */
+    public function validateFeed(
+        array $items,
+        float $marginPercent,
+        ?SupplierConfig $config = null,
+        bool $forceShrink = false
+    ): array {
+        $errors = $this->preflight($items, $marginPercent);
+
+        if ($config !== null) {
+            if (count($items) > $config->maxProducts) {
+                $errors[] = sprintf('Feed contains %d products, exceeding the configured limit of %d.', count($items), $config->maxProducts);
+            }
+            if (!$items && !$config->allowEmptyFeed) {
+                $errors[] = 'Supplier feed returned no products.';
+            }
+
+            if (!$errors) {
+                try {
+                    $this->assertFeedChangeIsSafe($config->code, $items, $config, $forceShrink);
+                } catch (\\Throwable $e) {
+                    $errors[] = $e->getMessage();
+                }
+            }
+        }
+
+        return $errors;
     }
 
     private function preflight(array $items, float $marginPercent): array {
