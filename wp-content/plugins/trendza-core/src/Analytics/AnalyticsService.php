@@ -33,16 +33,42 @@ final class AnalyticsService {
         if (!$order || $order->get_meta('_trendza_purchase_recorded')) return;
 
         $sessionHash = (string) $order->get_meta('_trendza_session_hash');
+        $allRecorded = true;
+
         foreach ($order->get_items() as $item) {
+            // Track successful writes per line item so a transient database
+            // failure can be retried without duplicating already-recorded items.
+            if (method_exists($item, 'get_meta') && $item->get_meta('_trendza_purchase_recorded')) {
+                continue;
+            }
+
             $productId = (int) $item->get_product_id();
             if ($productId <= 0) continue;
-            EventStore::record($productId, 'purchase', $sessionHash ?: self::sessionKey(), [
+
+            $recorded = EventStore::record($productId, 'purchase', $sessionHash ?: self::sessionKey(), [
                 'quantity' => max(1, (int) $item->get_quantity()),
                 'order_hash' => hash('sha256', (string) $orderId),
             ]);
+
+            if (!$recorded) {
+                $allRecorded = false;
+                continue;
+            }
+
+            if (method_exists($item, 'update_meta_data') && method_exists($item, 'save_meta_data')) {
+                $item->update_meta_data('_trendza_purchase_recorded', 'yes');
+                $item->save_meta_data();
+            } else {
+                // Without item-level persistence, leave the order retryable
+                // rather than falsely claiming every purchase event was saved.
+                $allRecorded = false;
+            }
         }
-        $order->update_meta_data('_trendza_purchase_recorded', 'yes');
-        $order->save_meta_data();
+
+        if ($allRecorded) {
+            $order->update_meta_data('_trendza_purchase_recorded', 'yes');
+            $order->save_meta_data();
+        }
     }
 
     public static function recalculate(): void {
