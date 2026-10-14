@@ -88,12 +88,18 @@ final class SupplierCliCommand {
             isset($assocArgs['force-shrink'])
         );
 
-        \WP_CLI::success(sprintf(
-            'Sync complete: %d seen, %d created, %d updated, %d skipped, %d errors.',
+        \WP_CLI::log(sprintf(
+            'Sync finished: %d seen, %d created, %d updated, %d skipped, %d errors.',
             $result->seen, $result->created, $result->updated, $result->skipped, count($result->errors)
         ));
         foreach ($result->errors as $error) {
             \WP_CLI::warning($error['external_id'] . ': ' . $error['message']);
         }
+
+        if ($result->errors) {
+            \WP_CLI::error('Supplier sync completed with product errors. Review the warnings and supplier audit log before retrying.');
+        }
+
+        \WP_CLI::success('Supplier sync completed without product errors.');        }
     }
 }
