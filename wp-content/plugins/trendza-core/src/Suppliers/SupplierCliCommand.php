@@ -72,7 +72,7 @@ final class SupplierCliCommand {
                 \WP_CLI::warning($message);
             }
             if ($errors) {
-                \\WP_CLI::error('Dry run failed validation. Review the warnings before running a live sync.');
+                \WP_CLI::error('Dry run failed validation. Review the warnings before running a live sync.');
             }
             \WP_CLI::success('Dry run passed all configured feed safety checks.');
             return;
