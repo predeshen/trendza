@@ -41,7 +41,7 @@ SKU is preferred. If SKU is unavailable, supplier external ID is used. A future 
 
 ## Feed safety
 
-Every normal supplier sync performs a preflight before changing WooCommerce data.
+Every normal supplier sync performs a preflight before changing WooCommerce data. The `--dry-run` mode applies the same feed validation, configured product cap, empty-feed policy, and previous-feed retention check without writing products. Use `--force-shrink` only when the supplier's reduced catalogue is expected and has been reviewed.
 
 - Empty feeds are rejected.
 - Parent product identifiers must be unique within the feed.
