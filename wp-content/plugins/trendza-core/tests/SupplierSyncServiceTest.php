@@ -1,12 +1,12 @@
 <?php
-use PHPUnit\\Framework\\TestCase;
-use Trendza\\Suppliers\\CatalogueSynchronizer;
-use Trendza\\Suppliers\\PricingEngine;
-use Trendza\\Suppliers\\ProductDeduplicator;
-use Trendza\\Suppliers\\SupplierConfig;
-use Trendza\\Suppliers\\SupplierProduct;
-use Trendza\\Suppliers\\SupplierSyncService;
-use Trendza\\Suppliers\\WooCommerceProductImporter;
+use PHPUnit\Framework\TestCase;
+use Trendza\Suppliers\CatalogueSynchronizer;
+use Trendza\Suppliers\PricingEngine;
+use Trendza\Suppliers\ProductDeduplicator;
+use Trendza\Suppliers\SupplierConfig;
+use Trendza\Suppliers\SupplierProduct;
+use Trendza\Suppliers\SupplierSyncService;
+use Trendza\Suppliers\WooCommerceProductImporter;
 
 final class SupplierSyncServiceTest extends TestCase {
     private function service(): SupplierSyncService {
