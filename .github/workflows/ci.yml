@@ -24,7 +24,9 @@ jobs:
         run: composer install --no-interaction --prefer-dist
       - name: PHP syntax check
         run: |
-          find wp-content/plugins/trendza-core -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          find wp-content/plugins/trendza-core wp-content/themes/trendza -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Theme JavaScript syntax check
+        run: node --check wp-content/themes/trendza/assets/js/theme.js
       - name: PHPUnit
         working-directory: wp-content/plugins/trendza-core
         run: vendor/bin/phpunit
