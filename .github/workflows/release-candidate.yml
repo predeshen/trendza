@@ -3,6 +3,7 @@ name: Trendza Release Candidate
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     tags:
       - 'v*'
 
