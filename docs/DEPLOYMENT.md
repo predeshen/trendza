@@ -4,7 +4,7 @@ Trendza is intended for a clean WordPress + WooCommerce installation. WordPress 
 
 ## Release candidate packages
 
-The `Trendza Release Candidate` workflow builds installable `trendza-core.zip` and `trendza-theme.zip` archives when manually dispatched or when a `v*` tag is pushed. The workflow installs production Composer dependencies, excludes PHPUnit tests from the plugin package, checks the expected WordPress ZIP root folders, validates archive integrity, and produces `SHA256SUMS.txt`.
+The `Trendza Release Candidate` workflow builds installable `trendza-core.zip` and `trendza-theme.zip` archives on pushes to `main`, when manually dispatched, or when a `v*` tag is pushed. The workflow installs production Composer dependencies, excludes PHPUnit tests from the plugin package, checks the expected WordPress ZIP root folders, validates archive integrity, and produces `SHA256SUMS.txt`.
 
 For a release candidate, open the repository's Actions tab, select `Trendza Release Candidate`, and download the artifact named `trendza-release-candidate-<commit-sha>`. Verify the checksums before transferring the packages. Install the plugin and theme ZIPs through WordPress or extract each into its corresponding `wp-content/plugins/` or `wp-content/themes/` directory.
 
