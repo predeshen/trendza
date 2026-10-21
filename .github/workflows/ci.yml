@@ -30,3 +30,36 @@ jobs:
       - name: PHPUnit
         working-directory: wp-content/plugins/trendza-core
         run: vendor/bin/phpunit
+
+  package-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer
+      - name: Install production autoloader
+        working-directory: wp-content/plugins/trendza-core
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+      - name: Build and verify WordPress archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/staging dist/theme-staging
+          cp -a wp-content/plugins/trendza-core dist/staging/trendza-core
+          cp -a wp-content/themes/trendza dist/theme-staging/trendza
+          rm -rf dist/staging/trendza-core/tests
+          rm -f dist/staging/trendza-core/phpunit.xml.dist
+          (cd dist/staging && zip -qr ../trendza-core.zip trendza-core)
+          (cd dist/theme-staging && zip -qr ../trendza-theme.zip trendza)
+          (cd dist && sha256sum trendza-core.zip trendza-theme.zip > SHA256SUMS.txt)
+          unzip -Z1 dist/trendza-core.zip | grep -qx 'trendza-core/trendza-core.php'
+          unzip -Z1 dist/trendza-theme.zip | grep -qx 'trendza/style.css'
+          unzip -Z1 dist/trendza-theme.zip | grep -qx 'trendza/assets/js/theme.js'
+          unzip -Z1 dist/trendza-core.zip | grep -qx 'trendza-core/vendor/autoload.php'
+          ! unzip -Z1 dist/trendza-core.zip | grep -q '/tests/'
+          unzip -t dist/trendza-core.zip
+          unzip -t dist/trendza-theme.zip
