@@ -62,16 +62,26 @@ document.addEventListener('DOMContentLoaded',function(){
                     const items=Array.isArray(data.recommendations)?data.recommendations:[];
                     if(!items.length){recommendationRoot.remove();return;}
                     grid.innerHTML=items.map(function(item){
-                        const image=item.image?'<img loading="lazy" src="'+escapeHtml(item.image)+'" alt="'+escapeHtml(item.name||'')+'">':'';
+                        const imageUrl=safeUrl(item.image);
+                        const productUrl=safeUrl(item.url)||'#';
+                        const image=imageUrl?'<img loading="lazy" src="'+escapeHtml(imageUrl)+'" alt="'+escapeHtml(item.name||'')+'">':'';
                         const trend=item.trend_score?'<span class="trend-badge">'+escapeHtml((item.trend_status||'').replace(/^./,function(c){return c.toUpperCase();}))+' · '+escapeHtml(Math.round(item.trend_score))+'</span>':'';
                         const reason=item.why_recommended?'<p class="recommendation-reason">'+escapeHtml(item.why_recommended)+'</p>':'';
-                        return '<article class="product-card recommendation-card" data-trendza-product="'+escapeHtml(item.id||0)+'">'+trend+'<a class="product-image" href="'+escapeHtml(item.url||'#')+'" aria-label="'+escapeHtml(item.name||'')+'">'+image+'</a><div class="product-body"><a class="product-title" href="'+escapeHtml(item.url||'#')+'">'+escapeHtml(item.name||'Product')+'</a><div class="product-price">'+formatPrice(item.price,item.currency)+'</div>'+reason+'</div></article>';
+                        return '<article class="product-card recommendation-card" data-trendza-product="'+escapeHtml(item.id||0)+'">'+trend+'<a class="product-image" href="'+escapeHtml(productUrl)+'" aria-label="'+escapeHtml(item.name||'')+'">'+image+'</a><div class="product-body"><a class="product-title" href="'+escapeHtml(productUrl)+'">'+escapeHtml(item.name||'Product')+'</a><div class="product-price">'+formatPrice(item.price,item.currency)+'</div>'+reason+'</div></article>';
                     }).join('');
                     observeProductViews(grid);
                 }).catch(function(){recommendationRoot.remove();});
         }
     }
 
+    function safeUrl(value){
+        if(typeof value!=='string'||!value.trim())return '';
+        try{
+            const url=new URL(value,window.location.origin);
+            if(url.protocol!=='https:'&&url.protocol!=='http:')return '';
+            return url.href;
+        }catch(e){return '';}
+    }
     function escapeHtml(value){return String(value==null?'':value).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];});}
     function formatPrice(value,currency){const number=Number(value);if(!Number.isFinite(number))return '';try{return new Intl.NumberFormat(undefined,{style:'currency',currency:currency||'ZAR',maximumFractionDigits:2}).format(number);}catch(e){return (currency||'ZAR')+' '+number.toFixed(2);}}
 });
