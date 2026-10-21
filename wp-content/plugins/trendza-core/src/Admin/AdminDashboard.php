@@ -11,6 +11,10 @@ final class AdminDashboard {
 
     public static function menu(): void {
         add_menu_page('Trendza Intelligence', 'Trendza', 'manage_woocommerce', 'trendza', [self::class, 'render'], 'dashicons-chart-area', 56);
+        // Register the overview explicitly so it remains visible as a submenu
+        // alongside Supplier Policies, rather than relying on WP's implicit
+        // first-submenu behaviour.
+        add_submenu_page('trendza', 'Overview', 'Overview', 'manage_woocommerce', 'trendza', [self::class, 'render']);
     }
 
     public static function render(): void {
