@@ -29,7 +29,7 @@ Trendza should not be installed on the production store until the release-candid
 - [ ] Finalize payment gateway, shipping, tax and transactional-email decisions.
 - [ ] Verify legal/store policy pages and contact details for the live business.
 - [x] Add automated release-candidate packaging with production Composer autoloading, installable ZIP folder structure, test exclusion, archive integrity checks, and SHA-256 checksums.
-- [ ] Run the release-candidate packaging workflow and verify its artifact on GitHub.
+- [x] Run the release-candidate packaging workflow; GitHub Actions produced the package artifact and the workflow validated archive paths, contents, integrity, and checksums.
 - [ ] Perform clean WordPress + WooCommerce installation verification.
 - [ ] Perform browser QA against the clean installation.
 - [ ] Run a controlled supplier dry-run before importing the launch catalogue.
