@@ -1,0 +1,57 @@
+name: Trendza Release Candidate
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer
+      - name: Install production autoloader
+        working-directory: wp-content/plugins/trendza-core
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+      - name: Verify release source
+        run: |
+          test -f wp-content/plugins/trendza-core/trendza-core.php
+          test -f wp-content/plugins/trendza-core/vendor/autoload.php
+          test -f wp-content/themes/trendza/style.css
+          test -f wp-content/themes/trendza/functions.php
+          test -f wp-content/themes/trendza/assets/js/theme.js
+          php -l wp-content/plugins/trendza-core/trendza-core.php
+          php -l wp-content/themes/trendza/functions.php
+          node --check wp-content/themes/trendza/assets/js/theme.js
+      - name: Package plugin and theme
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          zip -qr dist/trendza-core.zip wp-content/plugins/trendza-core
+          zip -qr dist/trendza-theme.zip wp-content/themes/trendza
+          (
+            cd dist
+            sha256sum trendza-core.zip trendza-theme.zip > SHA256SUMS.txt
+          )
+          unzip -Z1 dist/trendza-core.zip | grep -qx 'wp-content/plugins/trendza-core/trendza-core.php'
+          unzip -Z1 dist/trendza-theme.zip | grep -qx 'wp-content/themes/trendza/style.css'
+          unzip -Z1 dist/trendza-theme.zip | grep -qx 'wp-content/themes/trendza/assets/js/theme.js'
+          ! unzip -Z1 dist/trendza-core.zip | grep -q '/tests/'
+      - name: Upload release candidate packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: trendza-release-candidate-${{ github.sha }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
