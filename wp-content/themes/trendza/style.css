@@ -80,3 +80,23 @@ Text Domain: trendza
 .final-discovery-panel .button{flex-shrink:0}
 @media(max-width:900px){.shop-hero{padding:52px 0}.shop-hero .hero-grid{grid-template-columns:1fr}.shop-hero-feature{min-height:330px}.shop-category-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.assurance-grid{gap:14px}.assurance-grid small{font-size:.69rem}}
 @media(max-width:560px){.shop-hero{padding:38px 0 34px}.shop-hero h1{font-size:clamp(2.8rem,13vw,4rem)}.shop-hero-feature{min-height:320px;border-radius:22px}.feature-glyph{right:25px;top:56px;font-size:8rem}.feature-copy{left:20px;bottom:23px;right:18px}.feature-sticker{right:16px;bottom:20px;width:72px;height:72px;font-size:.58rem}.assurance-grid{grid-template-columns:1fr;gap:14px}.assurance-grid>div{gap:10px}.shop-section{padding-top:40px;padding-bottom:40px}.shop-section .section-head{align-items:flex-start;gap:12px}.shop-section .section-head .text-link{font-size:.78rem}.shop-category-grid{gap:10px}.shop-category-card{min-height:132px;padding:15px}.shop-category-card strong{font-size:.9rem}.final-discovery-panel{align-items:flex-start;flex-direction:column}.final-discovery-panel .button{width:100%;justify-content:center}.shop-benefits{gap:9px 14px;font-size:.72rem}}
+
+
+/* Editorial imagery and visual depth */
+.shop-hero-feature{background:#111827}
+.feature-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.72;z-index:-2}
+.feature-photo-shade{position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(8,12,24,.18) 0%,rgba(8,12,24,.25) 32%,rgba(8,12,24,.94) 100%),linear-gradient(90deg,rgba(8,12,24,.5),transparent 90%)}
+.shop-hero-feature .feature-orbit{border-color:rgba(255,255,255,.22)}
+.shop-hero-feature .feature-glyph{display:none}
+.shop-hero-feature .feature-copy{max-width:360px}
+.shop-category-card{isolation:isolate;min-height:205px;justify-content:flex-end;background:#111827}
+.shop-category-card .category-photo{position:absolute;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover;transition:transform .45s cubic-bezier(.2,.7,.2,1);opacity:.84}
+.shop-category-card .category-image-shade{position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(5,10,20,.08) 0%,rgba(5,10,20,.22) 35%,rgba(5,10,20,.94) 100%)}
+.shop-category-card:hover .category-photo{transform:scale(1.07)}
+.shop-category-card .category-symbol{background:rgba(5,12,24,.62);border:1px solid rgba(255,255,255,.25);color:#fff;backdrop-filter:blur(8px)}
+.shop-category-card strong{font-size:1.05rem;text-shadow:0 2px 16px rgba(0,0,0,.55)}
+.shop-category-card small{color:#e2e8f0;text-shadow:0 1px 10px rgba(0,0,0,.7)}
+.shop-category-card small span{color:var(--tz-cyan)}
+.category-card-placeholder{border-color:rgba(255,255,255,.12)}
+@media(min-width:901px){.shop-category-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.shop-category-card{min-height:220px}}
+@media(max-width:560px){.shop-category-card{min-height:170px}.shop-hero-feature .feature-photo{object-position:center}.shop-hero-feature .feature-copy{max-width:280px}}
