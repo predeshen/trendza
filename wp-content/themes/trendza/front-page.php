@@ -25,9 +25,10 @@
                 </div>
             </div>
             <div class="shop-hero-feature">
+                <img class="feature-photo" src="https://images.unsplash.com/photo-1490312278390-ab64016e0aa9?auto=format&fit=crop&w=1100&q=85" alt="Curated modern lifestyle and tech products" fetchpriority="high">
+                <div class="feature-photo-shade"></div>
                 <div class="feature-topline"><span class="live-dot"></span> THE TREND EDIT <span>01 / DISCOVER</span></div>
                 <div class="feature-orbit orbit-one"></div><div class="feature-orbit orbit-two"></div>
-                <div class="feature-glyph" aria-hidden="true">✦</div>
                 <div class="feature-copy">
                     <span class="eyebrow">The good finds, all in one place</span>
                     <h2>Scroll less.<br>Discover more.</h2>
@@ -54,10 +55,23 @@
                 <?php
                 $cats = class_exists('WooCommerce') ? get_terms(['taxonomy' => 'product_cat', 'hide_empty' => true, 'number' => 8, 'orderby' => 'count', 'order' => 'DESC']) : [];
                 $categoryIcons = ['✦', '⌘', '♡', '⌁', '✳', '◈', '↗', '◎'];
+                $categoryImages = [
+                    'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=700&q=80',
+                    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=700&q=80',
+                    'https://images.unsplash.com/photo-1490312278390-ab64016e0aa9?auto=format&fit=crop&w=700&q=80',
+                    'https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=700&q=80',
+                    'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=700&q=80',
+                    'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=700&q=80',
+                    'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=700&q=80',
+                    'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=700&q=80',
+                ];
                 if (!is_wp_error($cats) && $cats) :
                     foreach ($cats as $index => $cat) :
                 ?>
+                    <?php $categoryImageId = (int) get_term_meta($cat->term_id, 'thumbnail_id', true); $categoryImage = $categoryImageId ? wp_get_attachment_image_url($categoryImageId, 'medium_large') : ''; $categoryImage = $categoryImage ?: $categoryImages[$index % count($categoryImages)]; ?>
                     <a class="category-card shop-category-card" href="<?php echo esc_url(get_term_link($cat)); ?>">
+                        <img class="category-photo" src="<?php echo esc_url($categoryImage); ?>" alt="" loading="lazy" decoding="async">
+                        <span class="category-image-shade"></span>
                         <span class="category-symbol" aria-hidden="true"><?php echo esc_html($categoryIcons[$index % count($categoryIcons)]); ?></span>
                         <strong><?php echo esc_html($cat->name); ?></strong>
                         <small><?php echo esc_html(number_format_i18n($cat->count)); ?> products <span aria-hidden="true">↗</span></small>
@@ -71,9 +85,13 @@
                         ['Baby Essentials', 'Little things that help a lot', '✳'],
                         ['Car Accessories', 'Useful upgrades for the road', '◈'],
                     ];
-                    foreach ($suggested as $category) :
+                    foreach ($suggested as $index => $category) :
                 ?>
-                    <div class="category-card shop-category-card category-card-placeholder"><span class="category-symbol" aria-hidden="true"><?php echo esc_html($category[2]); ?></span><strong><?php echo esc_html($category[0]); ?></strong><small><?php echo esc_html($category[1]); ?></small></div>
+                    <div class="category-card shop-category-card category-card-placeholder">
+                        <img class="category-photo" src="<?php echo esc_url($categoryImages[$index % count($categoryImages)]); ?>" alt="" loading="lazy" decoding="async">
+                        <span class="category-image-shade"></span>
+                        <span class="category-symbol" aria-hidden="true"><?php echo esc_html($category[2]); ?></span><strong><?php echo esc_html($category[0]); ?></strong><small><?php echo esc_html($category[1]); ?></small>
+                    </div>
                 <?php endforeach; endif; ?>
             </div>
         </div>
